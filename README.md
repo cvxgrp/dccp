@@ -26,6 +26,7 @@ print x.value, y.value
 
 Functions and attributes
 ----------------
+* ``problem.is_dccp()`` returns a boolean indicating if an optimization problem satisfies dccp rules.
 * ``expression.gradient`` returns a dictionary of the gradients of a DCP expression
 w.r.t. its variables at the points specified by variable.value. (This attribute
 is also in the core CVXPY package.)
