@@ -13,19 +13,15 @@ You should first install CVXPY. CVXPY install guid can be found [here](http://ww
 
 Example
 -------
-The following code uses DCCP to approximately solve a problem of finding a smallest singular vector of a matrix.
+The following code uses DCCP to approximately solve a simple difference of convex problem.
 ```
-# Problem data
-m = 10; n = 10;
-numpy.random.seed(1)
-A = numpy.random.randn(m, n)
-
-# DCCP
-x = Variable(n)
-prob = Problem(Minimize(norm(A*x)), [norm(x) == 1])
-prob.solve(method = 'dccp')
-print objective.value
-print x.value
+x = Variable(1)
+y = Variable(1)
+myprob = Problem(Minimize(sqrt(x)+y), [x+y == 1, y >= 0])
+print myprob.is_dcp()   # false
+print myprob.is_dccp()  # true
+myprob.solve(method = 'dccp')
+print x.value, y.value
 ```
 
 Functions and attributes
