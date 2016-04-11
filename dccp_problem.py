@@ -97,7 +97,7 @@ def dccp_transform(self):
         cost_new =  temp[0] # new cost function
         parameters_cost.append(temp[1])
         parameters_cost.append(temp[2])
-        for dom in temp[3]: # domain constraints
+        for dom in temp[2]: # domain constraints
             constr_new.append(dom)
     else:
         flag_cost.append(0)
@@ -115,8 +115,7 @@ def dccp_transform(self):
         obj_new = Maximize(cost_new)
     # new problem
     prob_new = Problem(obj_new, constr_new)
-    print parameters[0]
-    return prob_new, parameters, flag, parameters_cost, flag_cost
+    return prob_new, parameters, flag, parameters_cost, flag_cost, var_slack
 
 def iter_dccp(self, max_iter, tau, miu, tau_max, solver):
     it = 1

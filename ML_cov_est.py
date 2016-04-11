@@ -3,6 +3,7 @@ from cvxpy import *
 import numpy as np
 import matplotlib.pyplot as plt
 import examples.extensions.dccp
+from test import iter_dccp
 
 np.random.seed(0)
 n = 5
@@ -37,7 +38,8 @@ for k in range(N):
 trace_val = trace(sum([matrix_frac(y[:,i], Sigma)/N for i in range(N)]))
 constr = [trace_val<=t, mul_elemwise(pos,Sigma) >= 0, mul_elemwise(neg,Sigma) <= 0, mul_elemwise(zero,Sigma) == 0]
 prob = Problem(Minimize(cost), constr)
-prob.solve(method='dccp', solver = 'SCS', max_iter = 20)
+#prob.solve(method='dccp', solver = 'SCS', max_iter = 20)
+iter_dccp(prob)
 '''
 S = Variable(n,n)
 cost = log_det(S)-trace(S*emp)

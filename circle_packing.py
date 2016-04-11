@@ -3,6 +3,7 @@ from cvxpy import *
 import numpy as np
 import matplotlib.pyplot as plt
 import examples.extensions.dccp
+from test import iter_dccp
 n = 10
 r = np.linspace(1,5,n)
 
@@ -12,7 +13,8 @@ for i in range(n-1):
     for j in range(i+1,n):
         constr.append(norm(c[i,:]-c[j,:])>=r[i]+r[j])
 prob = Problem(Minimize(max_entries(row_norm(c,'inf')+r)), constr)
-prob.solve(method = 'dccp')
+#prob.solve(method = 'dccp')
+iter_dccp(prob)
 
 l = max_entries(row_norm(c,'inf')+r).value*2
 pi = np.pi

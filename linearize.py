@@ -19,14 +19,14 @@ def linearize_para(expr):
             gr = []
             for d in range(var.size[1]):
                 g = Parameter(var.size[0],expr.size[0])
-                g = g.T
-                linear_expr += g * (var[:,d] - value_para[:,d]) # first order
+                #g = g.T
+                linear_expr += g.T * (var[:,d] - value_para[:,d]) # first order
                 gr.append(g)
             linear_dictionary[var] = [value_para, gr]
         else: # vector to vector
             g = Parameter(var.size[0],expr.size[0])
-            g = g.T
-            linear_expr += g * (var - value_para) # first order
+            #g = g.T
+            linear_expr += g.T * (var - value_para) # first order
             linear_dictionary[var] = [value_para, [g]]
     dom = expr.domain
     return linear_expr, zero_order, linear_dictionary, dom
