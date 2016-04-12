@@ -97,7 +97,7 @@ def dccp_transform(self):
         cost_new =  temp[0] # new cost function
         parameters_cost.append(temp[1])
         parameters_cost.append(temp[2])
-        for dom in temp[2]: # domain constraints
+        for dom in temp[3]: # domain constraints
             constr_new.append(dom)
     else:
         flag_cost.append(0)
