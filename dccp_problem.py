@@ -3,29 +3,28 @@ __author__ = 'Xinyue'
 from cvxpy import *
 import numpy as np
 import cvxpy as cvx
-from convexify_obj import convexify_obj
-from convexify_obj import convexify_para_obj
-from convexify_constr import convexify_para_constr
-from convexify_constr import convexify_constr
+from dccp_objective import convexify_obj
+from dccp_objective import convexify_para_obj
+from dccp_constraint import convexify_para_constr
+from dccp_constraint import convexify_constr
 
-def dccp(self, max_iter = 100, tau = 0.005, mu = 1.2, tau_max = 1e8, solver = None, *args, **kwargs):
-    # split non-affine equality constraints
-    constr = []
-    for arg in self.constraints:
-        if arg.OP_NAME == "==" and not arg.is_dcp():
-            sp = arg.split()
-            constr.append(sp[0])
-            constr.append(sp[1])
-        else:
-            constr.append(arg)
-    self.constraints = constr
-    # initialize
-    dccp_ini(self)
-    # ccp algorithm
-    result = iter_dccp(self, max_iter, tau, mu, tau_max, solver)
-    return(result)
+def dccp(self, max_iter = 100, tau = 0.005, mu = 1.2, tau_max = 1e8, solver = None, ccp_times = 1):
+    convex_prob = dccp_transform(self) # convexify problem
+    result = None
+    if self.objective.NAME == 'minimize':
+        cost_value = float("inf")
+    else:
+        cost_value = -float("inf")
+    for t in range(ccp_times):
+        dccp_ini(self, random=(ccp_times>1)) # random initial value is mandatory if ccp_times>1
+        result_temp = iter_dccp_para(self, convex_prob, max_iter, tau, mu ,tau_max, solver)
+        if (self.objective.NAME == 'minimize' and result_temp[0]<cost_value) or (self.objective.NAME == 'maximize' and result_temp[0]>cost_value):
+            if t==0 or len(result_temp)<3 or result[1]<1e-4: # first ccp; no slack; slack small enough
+                result = result_temp
+                cost_value = result_temp[0]
+    return result
 
-def dccp_ini(self, times = 3):
+def dccp_ini(self, times = 3, random = 0):
     dom_constr = self.objective.args[0].domain
     for arg in self.constraints:
         for dom in arg.args[0].domain:
@@ -41,7 +40,7 @@ def dccp_ini(self, times = 3):
         ini_cost = 0
         var_ind = 0
         for var in self.variables():
-            if init_flag[var_ind]:
+            if init_flag[var_ind] or random:
                 var.value = np.random.randn(var._rows,var._cols)*10
             ini_cost += pnorm(var-var.value,2)
             var_ind += 1
@@ -67,6 +66,17 @@ def is_dccp(self):
     return flag
 
 def dccp_transform(self):
+    # split non-affine equality constraints
+    constr = []
+    for arg in self.constraints:
+        if arg.OP_NAME == "==" and not arg.is_dcp():
+            sp = arg.split()
+            constr.append(sp[0])
+            constr.append(sp[1])
+        else:
+            constr.append(arg)
+    self.constraints = constr
+
     constr_new = [] # new constraints
     parameters = []
     flag = []
@@ -80,12 +90,12 @@ def dccp_transform(self):
             rows, cols = constr.size
             var_slack.append(Variable(rows, cols))
             temp = convexify_para_constr(constr)
-            newcon = temp[0]   #new constraint without slack variable
+            newcon = temp[0]   # new constraint without slack variable
             right = newcon.args[1] + var_slack[-1]
             constr_new.append(newcon.args[0]<=right)
             constr_new.append(var_slack[-1]>=0)
             parameters.append(temp[1])
-            for dom in temp[2]:#domain
+            for dom in temp[2]:# domain
                 constr_new.append(dom)
         else:
             flag.append(0)
@@ -116,6 +126,87 @@ def dccp_transform(self):
     # new problem
     prob_new = Problem(obj_new, constr_new)
     return prob_new, parameters, flag, parameters_cost, flag_cost, var_slack
+
+def iter_dccp_para(self, convex_prob, max_iter, tau, mu, tau_max, solver):
+    # keep the values from the initialization
+    previous_cost = float("inf")
+    variable_pres_value = []
+    for var in self.variables():
+        variable_pres_value.append(var.value)
+    it = 1
+    while it<=max_iter and all(var.value is not None for var in self.variables()):
+        # cost functions
+        if convex_prob[4][0] == 1:
+            convex_prob[3][0].value = self.objective.args[0].value
+            G = self.objective.args[0].gradient
+            for key in G:
+                # damping
+                flag_G = np.any(np.isnan(G[key])) or np.any(np.isinf(G[key]))
+                while flag_G:
+                    var_index = self.variables().index(key)
+                    key.value = 0*key.value + 1* variable_pres_value[var_index]
+                    G = self.objective.args[0].gradient
+                    flag_G = np.any(np.isnan(G[key])) or np.any(np.isinf(G[key]))
+                # gradient parameter
+                for d in range(key.size[1]):
+                    convex_prob[3][1][key][1][d].value = G[key][:,d,:,0]
+                # var value parameter
+                convex_prob[3][1][key][0].value = key.value
+        #constraints
+        count_constr = 0
+        count_con_constr = 0
+        for arg in self.constraints:
+            if convex_prob[2][count_constr] == 1:
+                for l in range(2):
+                    if not len(convex_prob[1][count_con_constr][l]) == 0:
+                        convex_prob[1][count_con_constr][l][0].value = arg.args[l].value
+                        G = arg.args[l].gradient
+                        for key in G:
+                            # damping
+                            flag_G = np.any(np.isnan(G[key])) or np.any(np.isinf(G[key]))
+                            while flag_G:
+                                var_index = self.variables().index(key)
+                                key.value = 0.8*key.value + 0.2* variable_pres_value[var_index]
+                                G = arg.args[l].gradient
+                                flag_G = np.any(np.isnan(G[key])) or np.any(np.isinf(G[key]))
+                            # gradient parameter
+                            for d in range(key.size[1]):
+                                convex_prob[1][count_con_constr][l][1][key][1][d].value = G[key][:,d,:,0]
+                            # var value parameter
+                            convex_prob[1][count_con_constr][l][1][key][0].value = key.value
+                count_con_constr += 1
+            count_constr += 1
+        # keep the values from the previous iteration
+        variable_pres_value = []
+        for var in self.variables():
+            variable_pres_value.append(var.value)
+        # parameter tau
+        convex_prob[1][-1].value = tau
+        # solve the transformed problem
+        if solver==None:
+            print "iteration=",it, "cost value = ", convex_prob[0].solve(), "tau = ", tau
+        else:
+            print "iteration=",it, "cost value = ", convex_prob[0].solve(solver = solver), "tau = ", tau
+        # print slack variables
+        if not len(convex_prob[5])==0:
+            max_slack = []
+            for i in range(len(convex_prob[5])):
+                max_slack.append(np.max(convex_prob[5][i].value))
+            max_slack = np.max(max_slack)
+            print "max slack = ", max_slack
+        if np.abs(previous_cost - convex_prob[0].value) <= 1e-4: # terminate
+            it = max_iter+1
+        else:
+            previous_cost = convex_prob[0].value
+            tau = min([tau*mu,tau_max])
+            it += 1
+    var_value = []
+    for var in self.variables():
+        var_value.append(var.value)
+    if not len(convex_prob[5])==0:
+        return(self.objective.value, max_slack, var_value)
+    else:
+        return(self.objective.value, var_value)
 
 def iter_dccp(self, max_iter, tau, miu, tau_max, solver):
     it = 1

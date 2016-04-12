@@ -4,14 +4,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 import mosek
 import sys
-import examples.extensions.dccp
+import dccp_problem
 # Define a stream printer to grab output from MOSEK
 def streamprinter(text):
     sys.stdout.write(text)
     sys.stdout.flush()
 
 n= 100
-T = 10
+T = 1
 noise_sigma = np.sqrt(n/np.linspace(1,17,8))
 error = np.zeros((len(noise_sigma),T))
 er_bit_rate = np.zeros((len(noise_sigma),T))
@@ -39,6 +39,7 @@ for t in range(T):
         er_bit_rate[noise_ind,t] = sum(np.abs(recover-x0)>=1)
         print "error=", error[noise_ind,t] , "error bit rate = ", er_bit_rate[noise_ind,t]
         ################################################################################################################
+
         # solve by MOSEK
         # Make a MOSEK environment
         env = mosek.Env ()
@@ -128,18 +129,8 @@ for t in range(T):
         print "difference = ", dis[noise_ind,t]
 
 
+
 plt.figure(figsize = (5,5))
-#plt.subplot(121)
-#for noise_ind in range(len(noise_sigma)):
-#    proba = np.zeros((100,1))
-#    max_dis = max(dis[noise_ind,:])
-#    x_dis = max_dis*np.linspace(0,1,len(proba))
-#    for p in range(len(proba)):
-#        proba[p] = sum(dis[noise_ind,:]<=x_dis[p])/float(T)
-#    plt.plot(x_dis,proba)
-#plt.xlabel('distance')
-#plt.ylabel('CDF')
-#plt.subplot(122)
 plt.plot(n/np.square(noise_sigma),np.sum(er_bit_rate,axis=1)/T,'b-o')
 plt.plot(n/np.square(noise_sigma),np.sum(er_M_bit_rate,axis=1)/T,'g-^')
 plt.xlabel('$n/\sigma^2$')

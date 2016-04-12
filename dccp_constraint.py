@@ -1,7 +1,7 @@
 __author__ = 'Xinyue'
 
-from linearize import linearize
-from linearize import linearize_para
+from dccp_linearize import linearize
+from dccp_linearize import linearize_para
 
 def convexify_para_constr(self):
         dom = []

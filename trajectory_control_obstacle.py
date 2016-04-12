@@ -3,7 +3,7 @@ from cvxpy import *
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
-import examples.extensions.dccp
+import dccp_problem
 
 n= 50
 l = 10
@@ -27,18 +27,15 @@ for i in range(n):
 prob = Problem(Minimize(cost), constr)
 result = prob.solve(method='dccp')
 
-#plot
+# plot
 fig, ax = plt.subplots(figsize=(5,5))
 for i in xrange(m):
         circle = mpatches.Circle(np.array(p[:,i]), r[i], ec="none")
         ax.add_patch(circle)
 ax1 = [xx.value[0][0,0] for xx in x]
 ax2 = [xx.value[1][0,0] for xx in x]
-#ax1 = np.array(x.value[0,:])
-#ax2 = np.array(x.value[1,:])
 plt.plot(ax1, ax2,'r-+')
 plt.ylim(0, 10)
 plt.xlim(0, 10)
 ax.grid()
 plt.show()
-#ax.axis('equal')

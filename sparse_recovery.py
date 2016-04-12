@@ -3,7 +3,6 @@ from cvxpy import *
 import numpy as np
 import matplotlib.pyplot as plt
 import dccp_problem
-from test import iter_dccp
 
 n=100
 m=[50,56,62,68,74,80]
@@ -26,8 +25,7 @@ for time in range(T):
             x_pos = Variable(n,1)
             x_pos.value = np.ones((n,1))
             prob = Problem(Minimize(sum_entries(sqrt(x_pos))), [A*x_pos==y])
-            #result = prob.solve(method='dccp',solver = 'MOSEK')
-            iter_dccp(prob,solver = 'MOSEK')
+            result = prob.solve(method='dccp',solver = 'MOSEK')
 
             if pnorm(x_pos - x0,2).value/pnorm(x0,2).value <=1e-2:
                 indm = m.index(mm)

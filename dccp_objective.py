@@ -1,6 +1,6 @@
 __author__ = 'Xinyue'
-from linearize import linearize
-from linearize import linearize_para
+from dccp_linearize import linearize
+from dccp_linearize import linearize_para
 
 def convexify_obj(obj):
         if obj.is_dcp() == False and is_dccp(obj) == True:
