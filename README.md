@@ -34,6 +34,10 @@ is also in the core CVXPY package.)
 DCP expression. (This attribute is also in the core CVXPY package.)
 * ``linearize(expression)`` returns the linearization of a DCP expression.
 * ``linearize_para(expression)`` returns the linearization with CVXPY parameters of a DCP expression.
+* ``convexify_obj(objective)`` returns the convexified objective (without slack
+variables) of a DCCP objective.
+* ``convexify_para_obj(objective)`` returns the convexified objective (without slack
+variables) with CVXPY parameters of a DCCP objective.
 * ``convexify_constr(constraint)`` returns the convexified constraint (without slack
 variables) of a DCCP constraint.
 * ``convexify_para_constr(constraint)`` returns the convexified constraint (without slack
