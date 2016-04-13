@@ -4,6 +4,7 @@ from dccp_linearize import linearize
 from dccp_linearize import linearize_para
 
 def convexify_para_constr(self):
+    if not self.is_dcp():
         dom = []
         para = []
         # left hand concave
@@ -27,8 +28,11 @@ def convexify_para_constr(self):
             right = self.args[1]
             para.append([])
         return left<=right, para, dom
+    else:
+        return self
 
 def convexify_constr(self):
+    if not self.is_dcp():
         dom = []
         flag = 0
         flag_var = []
@@ -53,3 +57,5 @@ def convexify_constr(self):
         else:
             right = self.args[1]
         return left<=right, dom, flag, flag_var
+    else:
+        return self

@@ -9,20 +9,23 @@ from dccp_constraint import convexify_para_constr
 from dccp_constraint import convexify_constr
 
 def dccp(self, max_iter = 100, tau = 0.005, mu = 1.2, tau_max = 1e8, solver = None, ccp_times = 1):
-    convex_prob = dccp_transform(self) # convexify problem
-    result = None
-    if self.objective.NAME == 'minimize':
-        cost_value = float("inf")
+    if is_dccp(self)==True:
+        convex_prob = dccp_transform(self) # convexify problem
+        result = None
+        if self.objective.NAME == 'minimize':
+            cost_value = float("inf")
+        else:
+            cost_value = -float("inf")
+        for t in range(ccp_times):
+            dccp_ini(self, random=(ccp_times>1)) # random initial value is mandatory if ccp_times>1
+            result_temp = iter_dccp_para(self, convex_prob, max_iter, tau, mu ,tau_max, solver)
+            if (self.objective.NAME == 'minimize' and result_temp[0]<cost_value) or (self.objective.NAME == 'maximize' and result_temp[0]>cost_value):
+                if t==0 or len(result_temp)<3 or result[1]<1e-4: # first ccp; no slack; slack small enough
+                    result = result_temp
+                    cost_value = result_temp[0]
+        return result
     else:
-        cost_value = -float("inf")
-    for t in range(ccp_times):
-        dccp_ini(self, random=(ccp_times>1)) # random initial value is mandatory if ccp_times>1
-        result_temp = iter_dccp_para(self, convex_prob, max_iter, tau, mu ,tau_max, solver)
-        if (self.objective.NAME == 'minimize' and result_temp[0]<cost_value) or (self.objective.NAME == 'maximize' and result_temp[0]>cost_value):
-            if t==0 or len(result_temp)<3 or result[1]<1e-4: # first ccp; no slack; slack small enough
-                result = result_temp
-                cost_value = result_temp[0]
-    return result
+        print "not a dccp problem"
 
 def dccp_ini(self, times = 3, random = 0):
     dom_constr = self.objective.args[0].domain

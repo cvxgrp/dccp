@@ -3,13 +3,17 @@ from dccp_linearize import linearize
 from dccp_linearize import linearize_para
 
 def convexify_obj(obj):
-        if obj.is_dcp() == False and is_dccp(obj) == True:
+        if obj.is_dcp() == False:
             result = linearize(obj.args[0])
+        else:
+            result = obj.args[0]
         return result
 
 def convexify_para_obj(obj):
-        if obj.is_dcp() == False and is_dccp(obj) == True:
+        if obj.is_dcp() == False:
             result = linearize_para(obj.args[0])
+        else:
+            result = obj.args[0]
         return result
 
 def is_dccp(objective):
