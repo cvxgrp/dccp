@@ -2,7 +2,7 @@ __author__ = 'Xinyue'
 from cvxpy import *
 import numpy as np
 import matplotlib.pyplot as plt
-import examples.extensions.dccp
+import dccp
 
 n = 100
 x = np.ones((n+1,1))

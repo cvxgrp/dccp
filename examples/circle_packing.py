@@ -2,7 +2,7 @@ __author__ = 'Xinyue'
 from cvxpy import *
 import numpy as np
 import matplotlib.pyplot as plt
-import examples.extensions.dccp
+import dccp
 n = 10
 r = np.linspace(1,5,n)
 

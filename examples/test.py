@@ -1,10 +1,10 @@
 __author__ = 'Xinyue'
 from cvxpy import *
-import examples.extensions.dccp
-from examples.extensions.dccp.linearize import linearize_para
-from examples.extensions.dccp.convexify_constr import convexify_para_constr
-from examples.extensions.dccp.dccp_problem import dccp_transform
-from  examples.extensions.dccp.dccp_problem import dccp_ini
+import dccp
+from dccp.linearize import linearize_para
+from dccp.convexify_constr import convexify_para_constr
+from dccp.dccp_problem import dccp_transform
+from  dccp.dccp_problem import dccp_ini
 import numpy as np
 
 x = Variable(1)

@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import mosek
 import sys
-import examples.extensions.dccp
+import dccp
 # Define a stream printer to grab output from MOSEK
 def streamprinter(text):
     sys.stdout.write(text)

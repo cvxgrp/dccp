@@ -9,7 +9,8 @@ DCCP is built on top of [CVXPY](http://www.cvxpy.org/), a domain-specific langua
 
 Installation
 ------------
-You should first install CVXPY. CVXPY install guid can be found [here](http://www.cvxpy.org/). If you already have CVXPY, make sure you have the latest version by running ``pip install —upgrade cvxpy``. 
+You should first install the modified version of CVXPY hosted [here](https://github.com/xinyueshen/cvxpyhttps://github.com/xinyueshen/cvxpy).
+Then install DCCP by running ``pip install dccp``.
 
 Example
 -------
@@ -35,7 +36,7 @@ is also in the core CVXPY package.)
 DCP expression. (This attribute is also in the core CVXPY package.)
 * ``convexify(constraint)`` returns the transformed constraint (without slack
 variables) satisfying DCP of a DCCP constraint.
- 
+
 Constructing and solving problems
 ---------------------------------
 The components of the variable, the objective, and the constraints are constructed using standard CVXPY syntax. Once the user has constructed a problem object, they can apply the following solve method:

@@ -3,7 +3,7 @@ from cvxpy import *
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
-import examples.extensions.dccp
+import dccp
 
 n= 50
 l = 10
