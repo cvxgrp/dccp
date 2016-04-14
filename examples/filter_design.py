@@ -2,7 +2,11 @@ __author__ = 'Xinyue'
 from cvxpy import *
 import numpy as np
 import matplotlib.pyplot as plt
+<<<<<<< HEAD:examples/filter_design.py
 import dccp
+=======
+import dccp_problem
+>>>>>>> 313b50a4756e332de6640a56fa4cfb1cf9273b2f:filter_design.py
 
 N = 100
 n = 10
@@ -44,9 +48,6 @@ for l in range(N):
 plt.plot(omega,H_amp)
 plt.xlabel("frequency")
 plt.ylabel("amplitude")
-#plt.arrow(omg[omg>=np.pi/2][0], 0.2, 0, delta_u.value*0.75, head_width=0.02, head_length=-delta_u.value*0.25, fc='k', ec='k')
-#plt.arrow(omg[omg>=np.pi/2][0], 0.2+delta_u.value, 0, -delta_u.value*0.75, head_width=0.02, head_length=-delta_u.value*0.25, fc='k', ec='k')
-#plt.text(1.7,delta_u.value*0.75+0.2,"$\Delta_u$")
 plt.show()
 
 

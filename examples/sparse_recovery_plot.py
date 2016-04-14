@@ -39,6 +39,3 @@ plt.ylabel("number of measurements")
 ax.set_title("probability of recovery")
 plt.show()
 
-np.save("sparse_rec/data29", proba)
-np.save("sparse_rec/data29_l1", proba_l1)
-

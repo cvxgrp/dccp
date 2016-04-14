@@ -3,6 +3,7 @@ from cvxpy import *
 import numpy as np
 import matplotlib.pyplot as plt
 import dccp
+
 n = 10
 r = np.linspace(1,5,n)
 
@@ -12,7 +13,7 @@ for i in range(n-1):
     for j in range(i+1,n):
         constr.append(norm(c[i,:]-c[j,:])>=r[i]+r[j])
 prob = Problem(Minimize(max_entries(row_norm(c,'inf')+r)), constr)
-prob.solve(method = 'dccp')
+prob.solve(method = 'dccp', ccp_times = 3)
 
 l = max_entries(row_norm(c,'inf')+r).value*2
 pi = np.pi
@@ -24,7 +25,6 @@ circ = np.linspace(0,2*pi)
 x_border = [-l/2, l/2, l/2, -l/2, -l/2]
 y_border = [-l/2, -l/2, l/2, l/2, -l/2]
 for i in xrange(n):
-    #plt.plot(c[i][0].value+r[i]*np.cos(circ),c[i][1].value+r[i]*np.sin(circ),'b')
     plt.plot(c[i,0].value+r[i]*np.cos(circ),c[i,1].value+r[i]*np.sin(circ),'b')
 plt.plot(x_border,y_border,'g')
 plt.axes().set_aspect('equal')

@@ -16,28 +16,36 @@ Example
 -------
 The following code uses DCCP to approximately solve a simple difference of convex problem.
 ```
-x = Variable(1)
-y = Variable(1)
-myprob = Problem(Minimize(sqrt(x)+y), [x+y == 1, y >= 0])
-print myprob.is_dcp()   # false
-print myprob.is_dccp()  # true
-myprob.solve(method = 'dccp')
+x = Variable(2)
+y = Variable(2)
+myprob = Problem(Maximize(norm(x-y,2)), [0<=x, x<=1, 0<=y, y<=1])
+print "problem is DCP:", myprob.is_dcp()   # false
+print "problem is DCCP:", myprob.is_dccp()  # true
+result = myprob.solve(method = 'dccp')
 print x.value, y.value
 ```
 
 Functions and attributes
 ----------------
-* ``problem.is_dccp()`` returns a boolean indicating if an optimization problem satisfies dccp rules.
+* ``is_dccp(problem)`` returns a boolean indicating if an optimization problem satisfies dccp rules.
 * ``expression.gradient`` returns a dictionary of the gradients of a DCP expression
-w.r.t. its variables at the points specified by variable.value. (This attribute
+w.r.t. its variables at the points specified by ``variable.value``. (This attribute
 is also in the core CVXPY package.)
-* ``linearize(expression)`` returns the linearization of a DCP expression.
 * ``expression.domain`` returns a list of constraints describing the domain of a
 DCP expression. (This attribute is also in the core CVXPY package.)
-* ``convexify(constraint)`` returns the transformed constraint (without slack
-variables) satisfying DCP of a DCCP constraint.
+* ``linearize(expression)`` returns the linearization of a DCP expression.
+* ``linearize_para(expression)`` returns the linearization with CVXPY parameters of a DCP expression.
+* ``convexify_obj(objective)`` returns the convexified objective (without slack
+variables) of a DCCP objective.
+* ``convexify_para_obj(objective)`` returns the convexified objective (without slack
+variables) with CVXPY parameters of a DCCP objective.
+* ``convexify_constr(constraint)`` returns the convexified constraint (without slack
+variables) of a DCCP constraint.
+* ``convexify_para_constr(constraint)`` returns the convexified constraint (without slack
+variables) with CVXPY parameters of a DCCP constraint.
+* ``dccp_transform(problem)`` returns the transformed problem with CVXPY parameters of a DCCP problem.
 
 Constructing and solving problems
 ---------------------------------
 The components of the variable, the objective, and the constraints are constructed using standard CVXPY syntax. Once the user has constructed a problem object, they can apply the following solve method:
-* ``problem.solve(method = 'dccp')`` applies the CCP heuristic, and returns the value of the transformed cost function, the value of the weight of the slack variables, and the maximum value of slack variables at each iteration. Additional arguments can be used to specify the parameters.
+* ``problem.solve(method = 'dccp')`` applies the CCP heuristic, and returns the value of the cost function, the maximum value of the slack variables, and the value of each variable. Additional arguments can be used to specify the parameters.

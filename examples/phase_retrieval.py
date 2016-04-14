@@ -17,12 +17,8 @@ y = np.power(yr,2) + np.power(yi,2)
 y = np.power(y,0.5)
 # solve
 xr = Variable(n)
-#xr.value = np.ones((n,1))
 xi = Variable(n)
 x = Variable(2,n)
-#xi.value = np.ones((n,1))
-#z = Variable(2,m)
-#z.value = np.ones((2,m))
 z = []
 constr = []
 c = np.matrix([[0,1],[-1,0]])
@@ -31,10 +27,9 @@ for k in range(m):
     z[-1].value = -np.random.rand(2,1)
     constr.append(norm(z[-1]) == y[k])
     constr += [z[-1] == x*Ar[k,:] + c*x*Ai[k,:]]
-    #constr += [norm(x*Ar[k,:].T + c*x*Ai[k,:].T) == y[k]]
 prob = Problem(Minimize(0),constr)
 result = prob.solve(method='dccp',solver = 'MOSEK')
-#plot
+# plot
 fig, (ax0, ax1) = plt.subplots(nrows=2, figsize=(10,8))
 tan = np.array(x[0,:].value/x[1,:].value)[0]
 angle = np.arctan(tan)
