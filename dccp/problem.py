@@ -9,55 +9,83 @@ from constraint import convexify_para_constr
 from constraint import convexify_constr
 
 def dccp(self, max_iter = 100, tau = 0.005, mu = 1.2, tau_max = 1e8, solver = None, ccp_times = 1):
+    '''
+    main algorithm ccp
+    :param max_iter: maximum number of iterations in ccp
+    :param tau: initial weight on slack variables
+    :param mu:  increment of weight on slack variables
+    :param tau_max: maximum weight on slack variables
+    :param solver: specify the solver for the transformed problem
+    :param ccp_times: times of running ccp to solve a problem with random initial values on variables
+    :return
+        if the transformed problem is infeasible, return None;
+    '''
     if is_dccp(self)==True:
         convex_prob = dccp_transform(self) # convexify problem
         result = None
         if self.objective.NAME == 'minimize':
-            cost_value = float("inf")
+            cost_value = float("inf") # record on the best cost value
         else:
             cost_value = -float("inf")
-        for t in range(ccp_times):
-            dccp_ini(self, random=(ccp_times>1)) # random initial value is mandatory if ccp_times>1
-            result_temp = iter_dccp_para(self, convex_prob, max_iter, tau, mu ,tau_max, solver)
-            if (self.objective.NAME == 'minimize' and result_temp[0]<cost_value) or (self.objective.NAME == 'maximize' and result_temp[0]>cost_value):
+        for t in range(ccp_times): # for each time of running ccp
+            dccp_ini(self, random=(ccp_times>1)) # initialization; random initial value is mandatory if ccp_times>1
+            result_temp = iter_dccp_para(self, convex_prob, max_iter, tau, mu ,tau_max, solver) # iterations
+            if (self.objective.NAME == 'minimize' and result_temp[0]<cost_value) \
+            or (self.objective.NAME == 'maximize' and result_temp[0]>cost_value): # find a better cost value
                 if t==0 or len(result_temp)<3 or result[1]<1e-4: # first ccp; no slack; slack small enough
-                    result = result_temp
-                    cost_value = result_temp[0]
+                    result = result_temp # update the result
+                    cost_value = result_temp[0] # update the record on the best cost value
         return result
     else:
         print "not a dccp problem"
 
 def dccp_ini(self, times = 3, random = 0):
-    dom_constr = self.objective.args[0].domain
+    '''
+    set initial values
+    :param times: number of random projections for each variable
+    :param random: mandatory random initial values
+    '''
+    dom_constr = self.objective.args[0].domain # domain of the objective function
     for arg in self.constraints:
-        for dom in arg.args[0].domain:
-            dom_constr.append(dom)
-        for dom in arg.args[1].domain:
-            dom_constr.append(dom)
-    var_store = []
-    init_flag = []
+        for l in range(2):
+            for dom in arg.args[l].domain:
+                dom_constr.append(dom) # domain on each side of constraints
+    var_store = [] # store initial values for each variable
+    init_flag = [] # indicate if any variable is initialized by the user
     for var in self.variables():
-        var_store.append(np.zeros((var._rows,var._cols)))
+        var_store.append(np.zeros((var._rows,var._cols))) # to be averaged
         init_flag.append(var.value is None)
-    for t in range(times):
-        ini_cost = 0
+    # setup the problem
+    ini_cost = 0
+    var_ind = 0
+    value_para = []
+    for var in self.variables():
+        if init_flag[var_ind] or random: # if the variable is not initialized by the user, or random initialization is mandatory
+            value_para.append(Parameter(var._rows,var._cols))
+            ini_cost += pnorm(var-value_para[-1],2)
+        var_ind += 1
+    ini_obj = Minimize(ini_cost)
+    ini_prob = Problem(ini_obj,dom_constr)
+    # solve it several times with random points
+    for t in range(times): # for each time of random projection
+        count_para = 0
         var_ind = 0
         for var in self.variables():
-            if init_flag[var_ind] or random:
-                var.value = np.random.randn(var._rows,var._cols)*10
-            ini_cost += pnorm(var-var.value,2)
+            if init_flag[var_ind] or random: # if the variable is not initialized by the user, or random initialization is mandatory
+                value_para[count_para].value = np.random.randn(var._rows,var._cols)*10 # set a random point
+                count_para += 1
             var_ind += 1
-        ini_obj = Minimize(ini_cost)
-        ini_prob = Problem(ini_obj,dom_constr)
         ini_prob.solve()
         var_ind = 0
         for var in self.variables():
-            var_store[var_ind] = var_store[var_ind] + var.value/float(times)
+            var_store[var_ind] = var_store[var_ind] + var.value/float(times) # average
             var_ind += 1
+    # set initial values
     var_ind = 0
     for var in self.variables():
-        var.value = var_store[var_ind]
-        var_ind += 1
+        if init_flag[var_ind] or random:
+            var.value = var_store[var_ind]
+            var_ind += 1
 
 def is_dccp(self):
     flag = True
@@ -69,6 +97,16 @@ def is_dccp(self):
     return flag
 
 def dccp_transform(self):
+    '''
+    problem transformation
+    return:
+        prob_new: a new dcp problem
+        parameters: parameters in the constraints
+        flag: indicate if each constraint is transformed
+        parameters_cost: parameters in the cost function
+        flag_cost: indicate if the cost function is transformed
+        var_slack: a list of slack variables
+    '''
     # split non-affine equality constraints
     constr = []
     for arg in self.constraints:
@@ -90,15 +128,14 @@ def dccp_transform(self):
     for constr in self.constraints:
         if not constr.is_dcp():
             flag.append(1)
-            rows, cols = constr.size
-            var_slack.append(Variable(rows, cols))
+            var_slack.append(Variable(constr.size[0], constr.size[1]))
             temp = convexify_para_constr(constr)
             newcon = temp[0]   # new constraint without slack variable
-            right = newcon.args[1] + var_slack[-1]
-            constr_new.append(newcon.args[0]<=right)
-            constr_new.append(var_slack[-1]>=0)
+            right = newcon.args[1] + var_slack[-1] # add slack variable on the right side
+            constr_new.append(newcon.args[0]<=right) # new constraint with slack variable
+            constr_new.append(var_slack[-1]>=0) # add constraint on the slack variable
             parameters.append(temp[1])
-            for dom in temp[2]:# domain
+            for dom in temp[2]: # domain
                 constr_new.append(dom)
         else:
             flag.append(0)
@@ -124,13 +161,24 @@ def dccp_transform(self):
         obj_new = Minimize(cost_new)
     else:
         for var in var_slack:
-            cost_new -= var*tau
+            cost_new -= np.ones((var._cols,var._rows))*var*tau
         obj_new = Maximize(cost_new)
     # new problem
     prob_new = Problem(obj_new, constr_new)
     return prob_new, parameters, flag, parameters_cost, flag_cost, var_slack
 
 def iter_dccp_para(self, convex_prob, max_iter, tau, mu, tau_max, solver):
+    '''
+    ccp iterations
+    :param convex_prob: result from dccp_transform
+    :param max_iter: maximum number of iterations in ccp
+    :param tau: initial weight on slack variables
+    :param mu:  increment of weight on slack variables
+    :param tau_max: maximum weight on slack variables
+    :param solver: specify the solver for the transformed problem
+    :return
+        value of the objective function, maximum value of slack variables, value of variables
+    '''
     # keep the values from the initialization
     previous_cost = float("inf")
     variable_pres_value = []
@@ -211,6 +259,7 @@ def iter_dccp_para(self, convex_prob, max_iter, tau, mu, tau_max, solver):
     else:
         return(self.objective.value, var_value)
 
+# the following function is not used anymore in the parameterized version
 def iter_dccp(self, max_iter, tau, miu, tau_max, solver):
     it = 1
     # keep the values from the previous iteration or initialization

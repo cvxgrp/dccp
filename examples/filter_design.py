@@ -2,11 +2,7 @@ __author__ = 'Xinyue'
 from cvxpy import *
 import numpy as np
 import matplotlib.pyplot as plt
-<<<<<<< HEAD:examples/filter_design.py
 import dccp
-=======
-import dccp_problem
->>>>>>> 313b50a4756e332de6640a56fa4cfb1cf9273b2f:filter_design.py
 
 N = 100
 n = 10

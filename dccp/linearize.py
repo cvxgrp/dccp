@@ -4,34 +4,30 @@ from cvxpy import *
 
 def linearize_para(expr):
     '''
+    input:
+        expr: an expression
     return:
-    linearized expression
-    zero order parameter
-    {variable: [value parameter, [gradient parameter]]}
-    domain
+        linear_expr: linearized expression
+        zero_order: zero order parameter
+        linear_dictionary: {variable: [value parameter, [gradient parameter]]}
+        dom: domain
     '''
     zero_order = Parameter(expr.size[0],expr.size[1]) # zero order
     linear_expr = zero_order
     linear_dictionary = {}
-    for var in expr.variables():
-        value_para = Parameter(var.size[0],var.size[1])
-        if var.size[1]>1: # matrix to vector
-            gr = []
-            for d in range(var.size[1]):
-                g = Parameter(var.size[0],expr.size[0])
-                #g = g.T
-                linear_expr += g.T * (var[:,d] - value_para[:,d]) # first order
-                gr.append(g)
-            linear_dictionary[var] = [value_para, gr]
-        else: # vector to vector
+    for var in expr.variables(): # for each variable in the expression
+        value_para = Parameter(var.size[0],var.size[1]) # parameterize its value
+        gr = [] # a list for grad w.r.t. this variable, the length of gr equals the number of columns of var
+        for d in range(var.size[1]): # for each slice
             g = Parameter(var.size[0],expr.size[0])
-            #g = g.T
-            linear_expr += g.T * (var - value_para) # first order
-            linear_dictionary[var] = [value_para, [g]]
+            linear_expr += g.T * (var[:,d] - value_para[:,d]) # first order
+            gr.append(g)
+        linear_dictionary[var] = [value_para, gr]
     dom = expr.domain
     return linear_expr, zero_order, linear_dictionary, dom
 
 
+# the following function is not used anymore in the parameterized version
 def linearize(expr):
         """linearize an expression at a given point
         """
