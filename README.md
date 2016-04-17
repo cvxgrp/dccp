@@ -23,7 +23,23 @@ myprob = Problem(Maximize(norm(x-y,2)), [0<=x, x<=1, 0<=y, y<=1])
 print "problem is DCP:", myprob.is_dcp()   # false
 print "problem is DCCP:", myprob.is_dccp()  # true
 result = myprob.solve(method = 'dccp')
-print x.value, y.value
+print "x =", x.value
+print "y =", y.value
+print "cost value =", result[0]
+```
+The output of the above code is as follows.
+```
+problem is DCP: False
+problem is DCCP: True
+iteration= 1 cost value =  1.38578967145 tau =  0.005
+iteration= 2 cost value =  1.41421356224 tau =  0.006
+iteration= 3 cost value =  1.41421356224 tau =  0.0072
+========================
+x = [[  4.84999696e-11]
+ [  4.84999696e-11]]
+y = [[ 1.]
+ [ 1.]]
+cost value = 1.41421356224
 ```
 
 Functions and attributes
