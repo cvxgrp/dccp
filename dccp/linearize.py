@@ -19,7 +19,7 @@ def linearize_para(expr):
             gr = []
             for d in range(var.size[1]):
                 g = Parameter(var.size[0],expr.size[0])
-                #g = g.T
+                # g = g.T
                 linear_expr += g.T * (var[:,d] - value_para[:,d]) # first order
                 gr.append(g)
             linear_dictionary[var] = [value_para, gr]
