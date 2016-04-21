@@ -15,7 +15,6 @@ def linearize_para(expr):
     zero_order = Parameter(expr.size[0],expr.size[1]) # zero order
     linear_expr = zero_order
     linear_dictionary = {}
-<<<<<<< HEAD
     for var in expr.variables():
         value_para = Parameter(var.size[0],var.size[1])
         if var.size[1]>1: # matrix to vector
@@ -27,12 +26,6 @@ def linearize_para(expr):
                 gr.append(g)
             linear_dictionary[var] = [value_para, gr]
         else: # vector to vector
-=======
-    for var in expr.variables(): # for each variable in the expression
-        value_para = Parameter(var.size[0],var.size[1]) # parameterize its value
-        gr = [] # a list for grad w.r.t. this variable, the length of gr equals the number of columns of var
-        for d in range(var.size[1]): # for each slice
->>>>>>> 39e1d3585979273930b2b7540562d09a601bb711
             g = Parameter(var.size[0],expr.size[0])
             linear_expr += g.T * (var[:,d] - value_para[:,d]) # first order
             gr.append(g)
