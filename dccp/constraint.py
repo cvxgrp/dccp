@@ -4,22 +4,34 @@ from linearize import linearize
 from linearize import linearize_para
 
 def convexify_para_constr(self):
+    '''
+    input:
+        self: a constraint of a problem
+    return:
+        if the constraint is dcp, return itself;
+        otherwise, return
+            a convexified constraint
+            para: [left side, right side]
+                if the left/right-hand side of the the constraint is linearized,
+                left/right side = [zero order parameter, {variable: [value parameter, [gradient parameter]]}]
+                else,
+                left/right side = []
+            dom: domain
+    '''
     if not self.is_dcp():
-        dom = []
-        para = []
-        # left hand concave
-        if self.args[0].curvature == 'CONCAVE':
-            lin = linearize_para(self.args[0]) # expression, vars, grads, domain
+        dom = [] # domain
+        para = [] # a list for parameters
+        if self.args[0].curvature == 'CONCAVE': # left-hand concave
+            lin = linearize_para(self.args[0]) # linearize the expression
             left = lin[0]
-            para.append([lin[1],lin[2]])
+            para.append([lin[1],lin[2]]) # [zero order parameter, {variable: [value parameter, [gradient parameter]]}]
             for con in lin[3]:
                 dom.append(con)
         else:
             left = self.args[0]
-            para.append([])
-        # right hand convex
-        if self.args[1].curvature == 'CONVEX':
-            lin = linearize_para(self.args[1])
+            para.append([]) # appending an empty list indicates the expression has the right curvature
+        if self.args[1].curvature == 'CONVEX': # right-hand convex
+            lin = linearize_para(self.args[1]) # linearize the expression
             right = lin[0]
             para.append([lin[1],lin[2]])
             for con in lin[3]:
@@ -31,6 +43,7 @@ def convexify_para_constr(self):
     else:
         return self
 
+# the following function is not used anymore in the parameterized version
 def convexify_constr(self):
     if not self.is_dcp():
         dom = []

@@ -61,7 +61,6 @@ for ind in range(len(card_min)):
         count[temp_ind] += 1
 plt.plot(s_value_plot,card_plot,'r o')
 plt.ylim([0,6])
-#plt.xlim([0.8,1.8])
 plt.grid()
 plt.xlabel(r'$\|\|Ax\|\|_2/\sigma_{\mathrm{min}}$', fontsize=16)
 plt.ylabel('card($x$)', fontsize=16)
@@ -69,65 +68,5 @@ print card_min
 print count
 print col_norm(A,2).value
 print "singular values = ", Sigma
-
-'''
-##########largest singular value
-A = np.transpose(np.linalg.pinv(A))
-mu = Parameter(sign="Positive")
-x = Variable(n)
-t = Variable()
-cost = norm(A*x,2)
-constr = [norm(x)==1, norm(x,1)<=mu]
-obj = Maximize(cost)
-prob = Problem(obj,constr)
-
-singular_value = []
-card = []
-x_result = []
-#singular_value_polish = []
-for val in mu_vals:
-    mu.value = val
-    prob.solve(method='dccp')
-    singular_value.append(norm(A*x).value)
-    card.append(np.sum(np.abs(x.value)>=1e-2))
-    x_result.append(x.value)
-    print norm(x).value
-
-plt.subplot(223)
-for i in range(n):
-    plt.plot(mu_vals, [np.abs(xi[i,0]) for xi in x_result])
-#for ind in range(len(card)-1):
-#    plt.axvspan(lambd_vals[ind], lambd_vals[ind+1], facecolor=str(card[ind]/float(10)), edgecolor = 'none', alpha=0.3)
-plt.xlabel(r'$\mu$', fontsize=16)
-plt.ylabel(r'$\|x_{i}\|$', fontsize=16)
-plt.ylim([0,1])
-#plt.xscale('log')
-#plt.title(r'Entries of x vs. $\lambda$', fontsize=16)
-
-
-plt.subplot(224)
-card_plot = []
-s_value_plot = []
-count = []
-for ind in range(len(card)):
-    if card[ind] not in card_plot:
-        card_plot.append(card[ind])
-        s_value_plot.append(singular_value[ind])
-        count.append(1)
-    else:
-        temp_ind = card_plot.index(card[ind])
-        s_value_plot[temp_ind] = max([s_value_plot[temp_ind],singular_value[ind]])
-        count[temp_ind] += 1
-plt.plot(s_value_plot,card_plot,'r o')
-plt.ylim([0,n])
-plt.grid()
-plt.xlabel(r'$\|\|(A^\dagger)^T x\|\|_2$', fontsize=16)
-plt.ylabel('card($x$)', fontsize=16)
-#plt.title('trade off')
-print card
-print count
-print col_norm(A,2).value
-print Sigma
-'''
 plt.show()
 
