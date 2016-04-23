@@ -66,7 +66,7 @@ plt.xlabel(r'$\|\|Ax\|\|_2/\sigma_{\mathrm{min}}$', fontsize=16)
 plt.ylabel('card($x$)', fontsize=16)
 print card_min
 print count
-print col_norm(A,2).value
+#print col_norm(A,2).value
 print "singular values = ", Sigma
 plt.show()
 

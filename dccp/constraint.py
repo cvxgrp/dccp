@@ -43,32 +43,36 @@ def convexify_para_constr(self):
     else:
         return self
 
-# the following function is not used anymore in the parameterized version
-def convexify_constr(self):
-    if not self.is_dcp():
+def convexify_constr(constr):
+    """
+    :param constr: a constraint of a problem
+    :return:
+    for a dcp constraint, return itself;
+    for a non-dcp constraint, return a convexified constraint and domain constraints;
+    return None if non-sub/super-diff
+    """
+    if not constr.is_dcp():
         dom = []
-        flag = 0
-        flag_var = []
         # left hand concave
-        if self.args[0].curvature == 'CONCAVE':
-            lin = linearize(self.args[0]) # expression, domain, flag
-            left = lin[0]
-            for con in lin[1]:
-                dom.append(con)
-            flag = lin[2]
-            flag_var.append(lin[3])
+        if constr.args[0].curvature == 'CONCAVE':
+            left = linearize(constr.args[0])
+            if left is None:
+                return None
+            else:
+                for con in constr.args[0].domain:
+                    dom.append(con)
         else:
-            left = self.args[0]
+            left = constr.args[0]
         #right hand convex
-        if self.args[1].curvature == 'CONVEX':
-            lin = linearize(self.args[1])
-            right = lin[0]
-            for con in lin[1]:
-                dom.append(con)
-            flag = lin[2]
-            flag_var.append(lin[3])
+        if constr.args[1].curvature == 'CONVEX':
+            right = linearize(constr.args[1])
+            if right is None:
+                return None
+            else:
+                for con in constr.args[1]:
+                    dom.append(con)
         else:
-            right = self.args[1]
-        return left<=right, dom, flag, flag_var
+            right = constr.args[1]
+        return left<=right, dom
     else:
-        return self
+        return constr

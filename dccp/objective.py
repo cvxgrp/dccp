@@ -1,6 +1,7 @@
 __author__ = 'Xinyue'
 from linearize import linearize
 from linearize import linearize_para
+from cvxpy import *
 
 def convexify_para_obj(obj):
     '''
@@ -33,10 +34,22 @@ def is_dccp(objective):
     else:
         return True
 
-# the following function is not used anymore in the parameterized version
 def convexify_obj(obj):
+    """
+    :param obj: objective of a problem
+    :return: convexified onjective or None
+    """
+    # not dcp
     if obj.is_dcp() == False:
-        result = linearize(obj.args[0])
+        lin = linearize(obj.args[0])
+        # non-sub/super-diff
+        if lin is None:
+            return None
+        else:
+            if obj.NAME == 'minimize':
+                result = Minimize(lin)
+            else:
+                result = Maximize(lin)
     else:
-        result = obj.args[0]
+        result = obj
     return result

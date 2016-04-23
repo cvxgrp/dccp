@@ -2,7 +2,7 @@ __author__ = 'Xinyue'
 from cvxpy import *
 import numpy as np
 import matplotlib.pyplot as plt
-import dccp
+import dccp.problem
 
 n=100
 m=[50,56,62,68,74,80]

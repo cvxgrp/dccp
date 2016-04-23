@@ -2,7 +2,7 @@ __author__ = 'Xinyue'
 from cvxpy import *
 import numpy as np
 import matplotlib.pyplot as plt
-import dccp_problem
+import dccp.problem
 
 np.random.seed(3)
 m = 100
