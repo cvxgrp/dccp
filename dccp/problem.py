@@ -227,7 +227,7 @@ def iter_dccp_para(self, convex_prob, max_iter, tau, mu, tau_max, solver):
                             flag_G = np.any(np.isnan(G[key])) or np.any(np.isinf(G[key]))
                             while flag_G:
                                 var_index = self.variables().index(key)
-                                key.value = 0.8*key.value + 0.2* variable_pres_value[var_index]
+                                key.value = 0.8*key.value + 0.2*variable_pres_value[var_index]
                                 G = arg.args[l].gradient
                                 flag_G = np.any(np.isnan(G[key])) or np.any(np.isinf(G[key]))
                             # gradient parameter
