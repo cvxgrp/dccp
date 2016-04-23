@@ -45,22 +45,15 @@ cost value = 1.41421356224
 Functions and attributes
 ----------------
 * ``is_dccp(problem)`` returns a boolean indicating if an optimization problem satisfies dccp rules.
-* ``expression.gradient`` returns a dictionary of the gradients of a DCP expression
+* ``expression.grad`` returns a dictionary of the gradients of a DCP expression
 w.r.t. its variables at the points specified by ``variable.value``. (This attribute
 is also in the core CVXPY package.)
 * ``expression.domain`` returns a list of constraints describing the domain of a
 DCP expression. (This attribute is also in the core CVXPY package.)
-* ``linearize(expression)`` returns the linearization of a DCP expression.
-* ``linearize_para(expression)`` returns the linearization with CVXPY parameters of a DCP expression.
-* ``convexify_obj(objective)`` returns the convexified objective (without slack
-variables) of a DCCP objective.
-* ``convexify_para_obj(objective)`` returns the convexified objective (without slack
-variables) with CVXPY parameters of a DCCP objective.
+* ``linearize(expression)`` returns the linearization of a DCP expression at the point specified by ``variable.value``.
+* ``convexify_obj(objective)`` returns the convexified objective of a DCCP objective.
 * ``convexify_constr(constraint)`` returns the convexified constraint (without slack
-variables) of a DCCP constraint.
-* ``convexify_para_constr(constraint)`` returns the convexified constraint (without slack
-variables) with CVXPY parameters of a DCCP constraint.
-* ``dccp_transform(problem)`` returns the transformed problem with CVXPY parameters of a DCCP problem.
+variables) of a DCCP constraint, and if any expression is linearized, its domain is also returned.
 
 Constructing and solving problems
 ---------------------------------
