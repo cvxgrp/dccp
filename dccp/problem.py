@@ -9,7 +9,7 @@ from constraint import convexify_para_constr
 from constraint import convexify_constr
 
 def dccp(self, max_iter = 100, tau = 0.005, mu = 1.2, tau_max = 1e8, solver = None, ccp_times = 1):
-    '''
+    """
     main algorithm ccp
     :param max_iter: maximum number of iterations in ccp
     :param tau: initial weight on slack variables
@@ -19,7 +19,7 @@ def dccp(self, max_iter = 100, tau = 0.005, mu = 1.2, tau_max = 1e8, solver = No
     :param ccp_times: times of running ccp to solve a problem with random initial values on variables
     :return
         if the transformed problem is infeasible, return None;
-    '''
+    """
     if is_dccp(self)==True:
         #convex_prob = dccp_transform(self) # convexify problem
         result = None
@@ -29,7 +29,8 @@ def dccp(self, max_iter = 100, tau = 0.005, mu = 1.2, tau_max = 1e8, solver = No
             cost_value = -float("inf")
         for t in range(ccp_times): # for each time of running ccp
             dccp_ini(self, random=(ccp_times>1)) # initialization; random initial value is mandatory if ccp_times>1
-            #result_temp = iter_dccp_para(self, convex_prob, max_iter, tau, mu ,tau_max, solver) # iterations
+            #result_temp = iter_dccp_para(self, convex_prob, max_iter, tau, mu ,tau_max, solver)
+            # iterations
             result_temp = iter_dccp(self, max_iter, tau, mu, tau_max, solver)
             if (self.objective.NAME == 'minimize' and result_temp[0]<cost_value) \
             or (self.objective.NAME == 'maximize' and result_temp[0]>cost_value): # find a better cost value
@@ -41,11 +42,11 @@ def dccp(self, max_iter = 100, tau = 0.005, mu = 1.2, tau_max = 1e8, solver = No
         print "not a dccp problem"
 
 def dccp_ini(self, times = 3, random = 0):
-    '''
+    """
     set initial values
     :param times: number of random projections for each variable
     :param random: mandatory random initial values
-    '''
+    """
     dom_constr = self.objective.args[0].domain # domain of the objective function
     for arg in self.constraints:
         for l in range(2):
@@ -88,9 +89,15 @@ def dccp_ini(self, times = 3, random = 0):
             var.value = var_store[var_ind]
             var_ind += 1
 
-def is_dccp(self):
+def is_dccp(problem):
+    """
+    :param
+        a problem
+    :return
+        a boolean indicating if the problem is dccp
+    """
     flag = True
-    for constr in self.constraints + [self.objective]:
+    for constr in problem.constraints + [problem.objective]:
         for arg in constr.args:
             if arg.curvature == 'UNKNOWN':
                 flag = False
@@ -98,7 +105,7 @@ def is_dccp(self):
     return flag
 
 def dccp_transform(self):
-    '''
+    """
     problem transformation
     return:
         prob_new: a new dcp problem
@@ -107,7 +114,7 @@ def dccp_transform(self):
         parameters_cost: parameters in the cost function
         flag_cost: indicate if the cost function is transformed
         var_slack: a list of slack variables
-    '''
+    """
     # split non-affine equality constraints
     constr = []
     for arg in self.constraints:
@@ -168,7 +175,7 @@ def dccp_transform(self):
     return prob_new, parameters, flag, parameters_cost, flag_cost, var_slack
 
 def iter_dccp_para(self, convex_prob, max_iter, tau, mu, tau_max, solver):
-    '''
+    """
     ccp iterations
     :param convex_prob: result from dccp_transform
     :param max_iter: maximum number of iterations in ccp
@@ -178,7 +185,7 @@ def iter_dccp_para(self, convex_prob, max_iter, tau, mu, tau_max, solver):
     :param solver: specify the solver for the transformed problem
     :return
         value of the objective function, maximum value of slack variables, value of variables
-    '''
+    """
     # keep the values from the initialization
     # split non-affine equality constraints
     constr = []
@@ -330,6 +337,7 @@ def iter_dccp(self, max_iter, tau, mu, tau_max, solver):
             temp = convexify_constr(arg)
             if not arg.is_dcp():
                 while temp is None:
+                    # damping
                     for var in self.variables:
                         var_index = self.variables().index(var)
                         var.value = 0.8*var.value + 0.2* variable_pres_value[var_index]
@@ -365,6 +373,7 @@ def iter_dccp(self, max_iter, tau, mu, tau_max, solver):
             print "iteration=",it, "cost value = ", prob_new.solve(), "tau = ", tau
         else:
             print "iteration=",it, "cost value = ", prob_new.solve(solver = solver), "tau = ", tau
+        # print slack
         if not var_slack == []:
             max_slack = []
             for i in range(len(var_slack)):

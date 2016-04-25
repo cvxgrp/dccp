@@ -12,14 +12,14 @@ constr = []
 for i in range(n-1):
     for j in range(i+1,n):
         constr.append(norm(c[i,:]-c[j,:])>=r[i]+r[j])
-prob = Problem(Minimize(max_entries(row_norm(c,'inf')+r)), constr)
+prob = Problem(Minimize(max_entries(max_entries(abs(c),axis=1)+r)), constr)
 prob.solve(method = 'dccp', ccp_times = 3)
 
-l = max_entries(row_norm(c,'inf')+r).value*2
+l = max_entries(max_entries(abs(c),axis=1)+r).value*2
 pi = np.pi
 ratio = pi*sum_entries(square(r)).value/square(l).value
-print "ratio=", ratio
-#### plot ####
+print "ratio =", ratio
+# plot
 plt.figure(figsize=(5,5))
 circ = np.linspace(0,2*pi)
 x_border = [-l/2, l/2, l/2, -l/2, -l/2]

@@ -4,7 +4,7 @@ from linearize import linearize
 from linearize import linearize_para
 
 def convexify_para_constr(self):
-    '''
+    """
     input:
         self: a constraint of a problem
     return:
@@ -17,7 +17,7 @@ def convexify_para_constr(self):
                 else,
                 left/right side = []
             dom: domain
-    '''
+    """
     if not self.is_dcp():
         dom = [] # domain
         para = [] # a list for parameters
@@ -69,7 +69,7 @@ def convexify_constr(constr):
             if right is None:
                 return None
             else:
-                for con in constr.args[1]:
+                for con in constr.args[1].domain:
                     dom.append(con)
         else:
             right = constr.args[1]

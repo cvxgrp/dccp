@@ -4,7 +4,7 @@ from linearize import linearize_para
 from cvxpy import *
 
 def convexify_para_obj(obj):
-    '''
+    """
     input:
         obj: an objective of a problem
     return:
@@ -15,7 +15,7 @@ def convexify_para_obj(obj):
         the zeros order parameter,
         the dictionary of parameters indexed by variables,
         the domain
-    '''
+    """
     if obj.is_dcp() == False:
         return linearize_para(obj.args[0])
     else:

@@ -22,7 +22,6 @@ zero = cov==0
 
 y = np.zeros((n,N))
 Sigma = Variable(n,n)
-#Sigma.value = np.eye(n)
 t = Variable(1)
 cost = log_det(Sigma) + t
 
@@ -35,6 +34,7 @@ constr = [trace_val<=t, mul_elemwise(pos,Sigma) >= 0, mul_elemwise(neg,Sigma) <=
 prob = Problem(Minimize(cost), constr)
 prob.solve(method='dccp', solver = 'SCS')
 
+# plot
 plt.figure(figsize = (15,5))
 plt.subplot(131)
 plt.imshow(Sigma.value,interpolation='none')

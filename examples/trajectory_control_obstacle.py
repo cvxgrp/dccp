@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import dccp
 
-n= 50
+n = 50
 l = 10
 m = 5
 a = [0,0]

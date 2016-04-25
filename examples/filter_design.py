@@ -28,9 +28,9 @@ for l in range(N):
     else:
         constr += [norm(expo[l]*h,2) <= U_stop]
 prob = Problem(Minimize(U_stop), constr)
-result = prob.solve(method = 'dccp')
+result = prob.solve(method = 'dccp', ccp_times = 3)
 
-#plot
+# plot
 plt.figure(figsize=(5,5))
 lowerbound = np.zeros((N,1))
 lowerbound[0:l_pass] = L_pass*np.ones((l_pass,1))
