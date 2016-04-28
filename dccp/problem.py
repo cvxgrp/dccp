@@ -326,7 +326,7 @@ def iter_dccp(self, max_iter, tau, mu, tau_max, solver):
                     var_index += 1
                 temp = convexify_obj(self.objective)
             # domain constraints
-            for dom in self.objective.args[0]:
+            for dom in self.objective.args[0].domain:
                 constr_new.append(dom)
         # new cost function
         cost_new =  temp.args[0]
