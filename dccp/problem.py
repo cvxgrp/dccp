@@ -164,11 +164,11 @@ def dccp_transform(self):
     parameters.append(tau)
     if self.objective.NAME == 'minimize':
         for var in var_slack:
-            cost_new += np.ones((var._cols,var._rows))*var*tau
+            cost_new += tau*sum_entries(var) 
         obj_new = Minimize(cost_new)
     else:
         for var in var_slack:
-            cost_new -= np.ones((var._cols,var._rows))*var*tau
+            cost_new -= tau*sum_entries(var) 
         obj_new = Maximize(cost_new)
     # new problem
     prob_new = Problem(obj_new, constr_new)
