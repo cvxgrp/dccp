@@ -1,7 +1,7 @@
 DCCP
 ====
 
-DCCP package provides an organized heuristic for difference of convex programming.
+DCCP package provides an organized heuristic for difference-of-convex programming.
 It tries to solve nonconvex problems that involve objective and constraint functions that are a sum of
 a convex and a concave term. The solver method provided and the syntax for constructing problems are discussed in [our associated paper](https://stanford.edu/~boyd/papers/dccp.html).
 
