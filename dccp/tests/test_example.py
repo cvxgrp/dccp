@@ -23,6 +23,7 @@ from cvxpy import *
 from dccp.objective import convexify_obj
 from dccp.constraint import convexify_constr
 from dccp.linearize import linearize
+import dccp.problem
 import numpy as np
 
 class TestExample(BaseTest):
@@ -75,3 +76,10 @@ class TestExample(BaseTest):
         prob_conv = Problem(Minimize(self.a), [constr_conv[0],constr_conv[1][0]])
         prob_conv.solve()
         self.assertAlmostEqual(self.a.value,0)
+
+    def test_vector_constr(self):
+        """Test DCCP with vector cosntraints.
+        """
+        prob = Problem(Minimize(self.x[0]), [self.x >= 0])
+        result = prob.solve(method="dccp")
+        self.assertAlmostEqual(result[0], 0)
