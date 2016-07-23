@@ -22,6 +22,8 @@ from dccp.tests.base_test import BaseTest
 from cvxpy import *
 from dccp.objective import convexify_obj
 from dccp.constraint import convexify_constr
+from dccp.linearize import linearize
+import dccp.problem
 import numpy as np
 
 class TestExample(BaseTest):
@@ -30,6 +32,16 @@ class TestExample(BaseTest):
         # Initialize things.
         self.a = Variable(1)
         self.x = Variable(2)
+
+    def test_linearize(self):
+        """Test the linearize function.
+        """
+        z = Variable(1,5)
+        expr = square(z)
+        z.value = np.reshape(np.array([1,2,3,4,5]), (1,5))
+        lin = linearize(expr)
+        self.assertEqual(lin.size, (1,5))
+        self.assertItemsAlmostEqual(lin.value, [1,4,9,16,25])
 
     def test_convexify_obj(self):
         """Test convexify objective
@@ -64,3 +76,10 @@ class TestExample(BaseTest):
         prob_conv = Problem(Minimize(self.a), [constr_conv[0],constr_conv[1][0]])
         prob_conv.solve()
         self.assertAlmostEqual(self.a.value,0)
+
+    def test_vector_constr(self):
+        """Test DCCP with vector cosntraints.
+        """
+        prob = Problem(Minimize(self.x[0]), [self.x >= 0])
+        result = prob.solve(method="dccp")
+        self.assertAlmostEqual(result[0], 0)

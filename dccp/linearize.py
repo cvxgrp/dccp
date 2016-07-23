@@ -55,7 +55,7 @@ def linearize(expr):
             )
         grad_map = expr.grad
         for var in expr.variables():
-            if var.is_matrix():
+            if var.size[1] > 1:
                 flattened = np.transpose(grad_map[var])*vec(var - var.value)
                 tangent = tangent + reshape(flattened, *expr.size)
             else:

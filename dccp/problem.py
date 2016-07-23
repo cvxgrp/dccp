@@ -1,6 +1,5 @@
 __author__ = 'Xinyue'
 
-from cvxpy import *
 import numpy as np
 import cvxpy as cvx
 from objective import convexify_obj
@@ -34,7 +33,8 @@ def dccp(self, max_iter = 100, tau = 0.005, mu = 1.2, tau_max = 1e8, solver = No
             result_temp = iter_dccp(self, max_iter, tau, mu, tau_max, solver)
             if (self.objective.NAME == 'minimize' and result_temp[0]<cost_value) \
             or (self.objective.NAME == 'maximize' and result_temp[0]>cost_value): # find a better cost value
-                if t==0 or len(result_temp)<3 or result[1]<1e-4: # first ccp; no slack; slack small enough
+                # first ccp; no slack; slack small enough
+                if t==0 or len(result_temp)<3 or result[1]<1e-4: 
                     result = result_temp # update the result
                     cost_value = result_temp[0] # update the record on the best cost value
         return result
@@ -55,7 +55,7 @@ def dccp_ini(self, times = 3, random = 0):
     var_store = [] # store initial values for each variable
     init_flag = [] # indicate if any variable is initialized by the user
     for var in self.variables():
-        var_store.append(np.zeros((var._rows,var._cols))) # to be averaged
+        var_store.append(np.zeros(var.size)) # to be averaged
         init_flag.append(var.value is None)
     # setup the problem
     ini_cost = 0
@@ -63,18 +63,21 @@ def dccp_ini(self, times = 3, random = 0):
     value_para = []
     for var in self.variables():
         if init_flag[var_ind] or random: # if the variable is not initialized by the user, or random initialization is mandatory
-            value_para.append(Parameter(var._rows,var._cols))
-            ini_cost += pnorm(var-value_para[-1],2)
+            value_para.append(cvx.Parameter(*var.size))
+            ini_cost += cvx.pnorm(var-value_para[-1], 2)
         var_ind += 1
-    ini_obj = Minimize(ini_cost)
-    ini_prob = Problem(ini_obj,dom_constr)
+    ini_obj = cvx.Minimize(ini_cost)
+    ini_prob = cvx.Problem(ini_obj,dom_constr)
     # solve it several times with random points
     for t in range(times): # for each time of random projection
         count_para = 0
         var_ind = 0
         for var in self.variables():
-            if init_flag[var_ind] or random: # if the variable is not initialized by the user, or random initialization is mandatory
-                value_para[count_para].value = np.random.randn(var._rows,var._cols)*10 # set a random point
+            # if the variable is not initialized by the user, or random
+            # initialization is mandatory
+            if init_flag[var_ind] or random:
+                # set a random point
+                value_para[count_para].value = np.random.randn(*var.size)*10 
                 count_para += 1
             var_ind += 1
         ini_prob.solve()
@@ -135,7 +138,7 @@ def dccp_transform(self):
     for constr in self.constraints:
         if not constr.is_dcp():
             flag.append(1)
-            var_slack.append(Variable(constr.size[0], constr.size[1]))
+            var_slack.append(cvx.Variable(constr.size[0], constr.size[1]))
             temp = convexify_para_constr(constr)
             newcon = temp[0]   # new constraint without slack variable
             right = newcon.args[1] + var_slack[-1] # add slack variable on the right side
@@ -160,18 +163,18 @@ def dccp_transform(self):
         flag_cost.append(0)
         cost_new = self.objective.args[0]
     # objective
-    tau = Parameter()
+    tau = cvx.Parameter()
     parameters.append(tau)
     if self.objective.NAME == 'minimize':
         for var in var_slack:
-            cost_new += np.ones((var._cols,var._rows))*var*tau
-        obj_new = Minimize(cost_new)
+            cost_new += tau*cvx.sum_entries(var) 
+        obj_new = cvx.Minimize(cost_new)
     else:
         for var in var_slack:
-            cost_new -= np.ones((var._cols,var._rows))*var*tau
-        obj_new = Maximize(cost_new)
+            cost_new -= tau*cvx.sum_entries(var) 
+        obj_new = cvx.Maximize(cost_new)
     # new problem
-    prob_new = Problem(obj_new, constr_new)
+    prob_new = cvx.Problem(obj_new, constr_new)
     return prob_new, parameters, flag, parameters_cost, flag_cost, var_slack
 
 def iter_dccp_para(self, convex_prob, max_iter, tau, mu, tau_max, solver):
@@ -309,7 +312,7 @@ def iter_dccp(self, max_iter, tau, mu, tau_max, solver):
     for constr in self.constraints:
         if not constr.is_dcp():
             rows, cols = constr.size
-            var_slack.append(Variable(rows, cols))
+            var_slack.append(cvx.Variable(rows, cols))
 
     while it<=max_iter and all(var.value is not None for var in self.variables()):
         constr_new = []
@@ -355,15 +358,15 @@ def iter_dccp(self, max_iter, tau, mu, tau_max, solver):
         # objective
         if self.objective.NAME == 'minimize':
             for var in var_slack:
-                cost_new += np.ones((var._cols,var._rows))*var*tau
-            obj_new = Minimize(cost_new)
+                cost_new += tau*cvx.sum_entries(var)
+            obj_new = cvx.Minimize(cost_new)
         else:
             for var in var_slack:
-                cost_new -= var*tau
-            obj_new = Maximize(cost_new)
+                cost_new -= tau*cvx.sum_entries(var)
+            obj_new = cvx.Maximize(cost_new)
 
         # new problem
-        prob_new = Problem(obj_new, constr_new)
+        prob_new = cvx.Problem(obj_new, constr_new)
         # keep previous value of variables
         variable_pres_value = []
         for var in self.variables():
