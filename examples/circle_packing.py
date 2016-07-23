@@ -19,6 +19,8 @@ l = max_entries(max_entries(abs(c),axis=1)+r).value*2
 pi = np.pi
 ratio = pi*sum_entries(square(r)).value/square(l).value
 print "ratio =", ratio
+print prob.status
+
 # plot
 plt.figure(figsize=(5,5))
 circ = np.linspace(0,2*pi)

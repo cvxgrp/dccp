@@ -381,9 +381,14 @@ def iter_dccp(self, max_iter, tau, mu, tau_max, solver):
             max_slack = np.max(max_slack)
             print "max slack = ", max_slack
         #terminate
-        if np.abs(previous_cost - prob_new.value) <= 1e-4:
+        converge = True
+        for idx, var in enumerate(self.variables()):
+            if normInf(var.value - variable_pres_value[idx]).value >= 1e-2:
+                converge = False
+        if np.abs(previous_cost - prob_new.value) <= 1e-4 and converge:
             it_real = it
             it = max_iter+1
+            self._status = "Converged"
         else:
             previous_cost = prob_new.value
             it_real = it

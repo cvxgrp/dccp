@@ -29,6 +29,7 @@ for l in range(N):
         constr += [norm(expo[l]*h,2) <= U_stop]
 prob = Problem(Minimize(U_stop), constr)
 result = prob.solve(method = 'dccp', ccp_times = 3)
+print prob.status
 
 # plot
 plt.figure(figsize=(5,5))
