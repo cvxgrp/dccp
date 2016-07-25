@@ -302,8 +302,10 @@ def iter_dccp(self, max_iter, tau, mu, tau_max, solver):
     self.constraints = constr
 
     it = 1
+    converge = False
     # keep the values from the previous iteration or initialization
     previous_cost = float("inf")
+    previous_org_cost = self.objective.value
     variable_pres_value = []
     for var in self.variables():
         variable_pres_value.append(var.value)
@@ -384,20 +386,21 @@ def iter_dccp(self, max_iter, tau, mu, tau_max, solver):
             max_slack = np.max(max_slack)
             print "max slack = ", max_slack
         #terminate
-        converge = True
-        for idx, var in enumerate(self.variables()):
-            if normInf(var.value - variable_pres_value[idx]).value >= 1e-2:
-                converge = False
-        if np.abs(previous_cost - prob_new.value) <= 1e-4 and converge:
+        if np.abs(previous_cost - prob_new.value) <= 1e-3 and np.abs(self.objective.value - previous_org_cost) <= 1e-3:
             it_real = it
             it = max_iter+1
-            self._status = "Converged"
+            converge = True
         else:
             previous_cost = prob_new.value
+            previous_org_cost = self.objective.value
             it_real = it
             tau = min([tau*mu,tau_max])
             it += 1
     # return
+    if converge:
+        self._status = "Converged"
+    else:
+        self._status = "Not_converged"
     var_value = []
     for var in self.variables():
         var_value.append(var.value)
