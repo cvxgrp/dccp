@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='dccp',
-    version='0.1.4',
+    version='0.1.5',
     author='Xinyue Shen, Steven Diamond, Stephen Boyd',
     author_email='xinyues@stanford.edu, diamond@cs.stanford.edu, boyd@stanford.edu',
     packages=['dccp'],

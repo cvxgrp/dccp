@@ -1,4 +1,4 @@
 __author__ = 'Xinyue'
 
 import problem
-__version___ = "0.1.4"
+__version___ = "0.1.5"
