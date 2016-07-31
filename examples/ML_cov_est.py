@@ -33,6 +33,7 @@ trace_val = trace(sum([matrix_frac(y[:,i], Sigma)/N for i in range(N)]))
 constr = [trace_val<=t, mul_elemwise(pos,Sigma) >= 0, mul_elemwise(neg,Sigma) <= 0, mul_elemwise(zero,Sigma) == 0]
 prob = Problem(Minimize(cost), constr)
 prob.solve(method='dccp', solver = 'SCS')
+print prob.status
 
 # plot
 plt.figure(figsize = (15,5))

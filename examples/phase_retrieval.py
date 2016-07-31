@@ -28,7 +28,8 @@ for k in range(m):
     constr.append(norm(z[-1]) == y[k])
     constr += [z[-1] == x*Ar[k,:] + c*x*Ai[k,:]]
 prob = Problem(Minimize(0),constr)
-result = prob.solve(method='dccp',solver = 'MOSEK')
+result = prob.solve(method='dccp',solver = 'SCS')
+print prob.status
 # plot
 fig, (ax0, ax1) = plt.subplots(nrows=2, figsize=(10,8))
 tan = np.array(x[0,:].value/x[1,:].value)[0]

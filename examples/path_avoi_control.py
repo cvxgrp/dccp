@@ -57,6 +57,7 @@ for t in range(T):
 #cost = sum([norm(u[i],1) for i in range(n)])
 prob = Problem(Minimize(cost), constr)
 prob.solve(method='dccp')
+print prob.status
 ###################################################
 ################ without avoidence ###############
 u_c = []

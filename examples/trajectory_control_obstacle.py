@@ -26,6 +26,7 @@ for i in range(n):
         constr += [norm(x[i]-p[:,j]) >= r[j]]
 prob = Problem(Minimize(cost), constr)
 result = prob.solve(method='dccp')
+print prob.status
 
 # plot
 fig, ax = plt.subplots(figsize=(5,5))
