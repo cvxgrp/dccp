@@ -1,11 +1,8 @@
 DCCP
 ====
 
-DCCP package provides an organized heuristic for difference-of-convex programming.
-It tries to solve nonconvex problems that involve objective and constraint functions that are a sum of
-a convex and a concave term. The solver method provided and the syntax for constructing problems are discussed in [our associated paper](https://stanford.edu/~boyd/papers/dccp.html).
-
-DCCP is built on top of [CVXPY](http://www.cvxpy.org/), a domain-specific language for convex optimization embedded in Python.
+DCCP package provides an organized heuristic for convex-concave programming.
+It tries to solve nonconvex problems where all expressions satisfy the rules of disciplined convex programming (DCP) but the objective and constraint right and left-hand sides may have any curvature (e.g., maximizing a convex expression). The full details of our approach are discussed in [the associated paper](https://stanford.edu/~boyd/papers/dccp.html). DCCP is built on top of [CVXPY](http://www.cvxpy.org/), a domain-specific language for convex optimization embedded in Python.
 
 Installation
 ------------
@@ -13,9 +10,22 @@ You should first install [CVXPY](http://ww.cvxpy.org/), following the instructio
 Then install DCCP by running ``pip install dccp``.
 To install from source, clone the repository and run ``python setup.py install`` inside.
 
+DCCP rules
+----------
+A problem satisfies the rules of disciplined convex-concave programming (DCCP) if it has the form
+```
+minimize/maximize o(x)
+subject to  l_i(x) ~ r_i(x),  i=1,...,m,
+```
+where ``o`` (the objective), ``l_i`` (lefthand sides), and ``r_i`` (righthand sides) are expressions (functions
+of the variable ``x``) with curvature known from the DCP composition rules, and ``∼`` denotes one of the
+relational operators ``=``, ``<=``, or ``>=``.
+
+In a disciplined convex program, the curvatures of ``o``, ``l_i``, and ``r_i`` are restricted to ensure that the problem is convex. For example, if the objective is ``maximize o(x)`` then ``o`` must be convex according to the DCP composition rules. In a disciplined convex-concave program, by contrast, the objective and constraint right and left-hand sides can have any curvature, so long as all expressions satisfy the DCP composition rules.
+
 Example
 -------
-The following code uses DCCP to approximately solve a simple difference of convex problem.
+The following code uses DCCP to approximately solve a simple nonconvex problem.
 ```
 x = Variable(2)
 y = Variable(2)
@@ -55,7 +65,7 @@ result = myprob.solve(method = 'dccp')
 
 Functions and attributes
 ----------------
-* ``is_dccp(problem)`` returns a boolean indicating if an optimization problem satisfies dccp rules.
+* ``is_dccp(problem)`` returns a boolean indicating if an optimization problem satisfies DCCP rules.
 * ``expression.grad`` returns a dictionary of the gradients of a DCP expression
 w.r.t. its variables at the points specified by ``variable.value``. (This attribute
 is also in the core CVXPY package.)
