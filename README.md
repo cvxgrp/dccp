@@ -27,6 +27,8 @@ Example
 -------
 The following code uses DCCP to approximately solve a simple nonconvex problem.
 ```
+from cvxpy import *
+import dccp
 x = Variable(2)
 y = Variable(2)
 myprob = Problem(Maximize(norm(x-y,2)), [0<=x, x<=1, 0<=y, y<=1])
