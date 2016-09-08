@@ -7,7 +7,8 @@ from objective import convexify_para_obj
 from constraint import convexify_para_constr
 from constraint import convexify_constr
 
-def dccp(self, max_iter = 100, tau = 0.005, mu = 1.2, tau_max = 1e8, solver = None, ccp_times = 1):
+def dccp(self, max_iter = 100, tau = 0.005, mu = 1.2, tau_max = 1e8,
+         solver = None, ccp_times = 1, **kwargs):
     """
     main algorithm ccp
     :param max_iter: maximum number of iterations in ccp
@@ -27,10 +28,9 @@ def dccp(self, max_iter = 100, tau = 0.005, mu = 1.2, tau_max = 1e8, solver = No
         else:
             cost_value = -float("inf")
         for t in range(ccp_times): # for each time of running ccp
-            dccp_ini(self, random=(ccp_times>1)) # initialization; random initial value is mandatory if ccp_times>1
-            #result_temp = iter_dccp_para(self, convex_prob, max_iter, tau, mu ,tau_max, solver)
+            dccp_ini(self, random=(ccp_times>1), **kwargs) # initialization; random initial value is mandatory if ccp_times>1
             # iterations
-            result_temp = iter_dccp(self, max_iter, tau, mu, tau_max, solver)
+            result_temp = iter_dccp(self, max_iter, tau, mu, tau_max, solver, **kwargs)
             if (self.objective.NAME == 'minimize' and result_temp[0]<cost_value) \
             or (self.objective.NAME == 'maximize' and result_temp[0]>cost_value): # find a better cost value
                 # first ccp; no slack; slack small enough
@@ -41,7 +41,7 @@ def dccp(self, max_iter = 100, tau = 0.005, mu = 1.2, tau_max = 1e8, solver = No
     else:
         print "not a dccp problem"
 
-def dccp_ini(self, times = 3, random = 0):
+def dccp_ini(self, times = 3, random = 0, **kwargs):
     """
     set initial values
     :param times: number of random projections for each variable
@@ -80,7 +80,7 @@ def dccp_ini(self, times = 3, random = 0):
                 value_para[count_para].value = np.random.randn(*var.size)*10 
                 count_para += 1
             var_ind += 1
-        ini_prob.solve()
+        ini_prob.solve(**kwargs)
         var_ind = 0
         for var in self.variables():
             var_store[var_ind] = var_store[var_ind] + var.value/float(times) # average
@@ -177,7 +177,7 @@ def dccp_transform(self):
     prob_new = cvx.Problem(obj_new, constr_new)
     return prob_new, parameters, flag, parameters_cost, flag_cost, var_slack
 
-def iter_dccp_para(self, convex_prob, max_iter, tau, mu, tau_max, solver):
+def iter_dccp_para(self, convex_prob, max_iter, tau, mu, tau_max, solver, **kwargs):
     """
     ccp iterations
     :param convex_prob: result from dccp_transform
@@ -255,9 +255,9 @@ def iter_dccp_para(self, convex_prob, max_iter, tau, mu, tau_max, solver):
         convex_prob[1][-1].value = tau
         # solve the transformed problem
         if solver==None:
-            print "iteration=",it, "cost value = ", convex_prob[0].solve(), "tau = ", tau
+            print "iteration=",it, "cost value = ", convex_prob[0].solve(**kwargs), "tau = ", tau
         else:
-            print "iteration=",it, "cost value = ", convex_prob[0].solve(solver = solver), "tau = ", tau
+            print "iteration=",it, "cost value = ", convex_prob[0].solve(solver = solver **kwargs), "tau = ", tau
         # print slack variables
         if not len(convex_prob[5])==0:
             max_slack = []
@@ -280,7 +280,7 @@ def iter_dccp_para(self, convex_prob, max_iter, tau, mu, tau_max, solver):
         return(self.objective.value, var_value)
 
 
-def iter_dccp(self, max_iter, tau, mu, tau_max, solver):
+def iter_dccp(self, max_iter, tau, mu, tau_max, solver, **kwargs):
     """
     ccp iterations
     :param max_iter: maximum number of iterations in ccp
@@ -375,9 +375,9 @@ def iter_dccp(self, max_iter, tau, mu, tau_max, solver):
             variable_pres_value.append(var.value)
         # solve
         if solver is None:
-            print "iteration=",it, "cost value = ", prob_new.solve(), "tau = ", tau
+            print "iteration=",it, "cost value = ", prob_new.solve(**kwargs), "tau = ", tau
         else:
-            print "iteration=",it, "cost value = ", prob_new.solve(solver = solver), "tau = ", tau
+            print "iteration=",it, "cost value = ", prob_new.solve(solver = solver, **kwargs), "tau = ", tau
         # print slack
         if not var_slack == []:
             max_slack = []

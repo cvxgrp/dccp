@@ -81,5 +81,6 @@ class TestExample(BaseTest):
         """Test DCCP with vector cosntraints.
         """
         prob = Problem(Minimize(self.x[0]), [self.x >= 0])
-        result = prob.solve(method="dccp")
+        # doesn't crash with solver params.
+        result = prob.solve(method="dccp", verbose=True)
         self.assertAlmostEqual(result[0], 0)
