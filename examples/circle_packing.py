@@ -13,7 +13,8 @@ for i in range(n-1):
     for j in range(i+1,n):
         constr.append(norm(c[i,:]-c[j,:])>=r[i]+r[j])
 prob = Problem(Minimize(max_entries(max_entries(abs(c),axis=1)+r)), constr)
-prob.solve(method = 'dccp', ccp_times = 3)
+#prob = Problem(Minimize(max_entries(normInf(c,axis=1)+r)), constr)
+prob.solve(method = 'dccp', ccp_times = 1)
 
 l = max_entries(max_entries(abs(c),axis=1)+r).value*2
 pi = np.pi
