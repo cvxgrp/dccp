@@ -24,6 +24,7 @@ from dccp.objective import convexify_obj
 from dccp.constraint import convexify_constr
 from dccp.linearize import linearize
 import dccp.problem
+import dccp
 import numpy as np
 
 class TestExample(BaseTest):
@@ -32,6 +33,19 @@ class TestExample(BaseTest):
         # Initialize things.
         self.a = Variable(1)
         self.x = Variable(2)
+
+    def test_readme_example(self):
+        """Test the example in the readme.
+        """
+        x = Variable(2)
+        y = Variable(2)
+        myprob = Problem(Maximize(norm(x-y,2)), [0<=x, x<=1, 0<=y, y<=1])
+        assert not myprob.is_dcp()   # false
+        assert dccp.is_dccp(myprob)  # true
+        result = myprob.solve(method = 'dccp')
+        self.assertItemsAlmostEqual(x.value, [0,0])
+        self.assertItemsAlmostEqual(y.value, [1,1])
+        self.assertAlmostEqual(result[0], np.sqrt(2))
 
     def test_linearize(self):
         """Test the linearize function.

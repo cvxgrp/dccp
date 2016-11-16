@@ -1,4 +1,7 @@
-__author__ = 'Xinyue'
+from problem import is_dccp
+from linearize import linearize
+from objective import convexify_obj
+from constraint import convexify_constr
 
-import problem
+__author__ = 'Xinyue'
 __version___ = "0.1.5"
