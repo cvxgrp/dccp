@@ -383,8 +383,9 @@ def iter_dccp(self, max_iter, tau, mu, tau_max, solver, **kwargs):
             logging.info("iteration=%d, cost value=%.5f, tau=%.5f", it, prob_new.solve(**kwargs), tau)
         else:
             logging.info("iteration=%d, cost value=%.5f, tau=%.5f", it, prob_new.solve(solver=solver, **kwargs), tau)
+        max_slack = None       
         # print slack
-        if not var_slack == []:
+        if (prob_new._status == "optimal" or prob_new._status == "optimal_inaccurate") and not var_slack == []:
             slack_values = [v.value for v in var_slack if v.value is not None]
             max_slack = max([np.max(v) for v in slack_values] + [-np.inf])
             logging.info("max slack = %.5f", max_slack)
