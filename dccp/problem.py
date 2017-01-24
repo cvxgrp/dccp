@@ -6,6 +6,9 @@ from objective import convexify_obj
 from objective import convexify_para_obj
 from constraint import convexify_para_constr
 from constraint import convexify_constr
+import logging
+
+logging.basicConfig(filename='dccp.log', filemode='w', level=logging.INFO)
 
 def dccp(self, max_iter = 100, tau = 0.005, mu = 1.2, tau_max = 1e8,
          solver = None, ccp_times = 1, **kwargs):
@@ -20,26 +23,27 @@ def dccp(self, max_iter = 100, tau = 0.005, mu = 1.2, tau_max = 1e8,
     :return
         if the transformed problem is infeasible, return None;
     """
-    if is_dccp(self)==True:
-        #convex_prob = dccp_transform(self) # convexify problem
-        result = None
-        if self.objective.NAME == 'minimize':
-            cost_value = float("inf") # record on the best cost value
-        else:
-            cost_value = -float("inf")
-        for t in range(ccp_times): # for each time of running ccp
-            dccp_ini(self, random=(ccp_times>1), **kwargs) # initialization; random initial value is mandatory if ccp_times>1
-            # iterations
-            result_temp = iter_dccp(self, max_iter, tau, mu, tau_max, solver, **kwargs)
+    if not is_dccp(self):
+        raise Exception("Problem is not DCCP.")
+
+    #convex_prob = dccp_transform(self) # convexify problem
+    result = None
+    if self.objective.NAME == 'minimize':
+        cost_value = float("inf") # record on the best cost value
+    else:
+        cost_value = -float("inf")
+    for t in range(ccp_times): # for each time of running ccp
+        dccp_ini(self, random=(ccp_times>1), **kwargs) # initialization; random initial value is mandatory if ccp_times>1
+        # iterations
+        result_temp = iter_dccp(self, max_iter, tau, mu, tau_max, solver, **kwargs)
+        if result_temp[0] is not None:
             if (self.objective.NAME == 'minimize' and result_temp[0]<cost_value) \
             or (self.objective.NAME == 'maximize' and result_temp[0]>cost_value): # find a better cost value
                 # first ccp; no slack; slack small enough
-                if t==0 or len(result_temp)<3 or result[1]<1e-4: 
+                if t==0 or len(result_temp)<3 or result[1] < 1e-4:
                     result = result_temp # update the result
                     cost_value = result_temp[0] # update the record on the best cost value
-        return result
-    else:
-        print "not a dccp problem"
+    return result
 
 def dccp_ini(self, times = 3, random = 0, **kwargs):
     """
@@ -77,7 +81,7 @@ def dccp_ini(self, times = 3, random = 0, **kwargs):
             # initialization is mandatory
             if init_flag[var_ind] or random:
                 # set a random point
-                value_para[count_para].value = np.random.randn(*var.size)*10 
+                value_para[count_para].value = np.random.randn(*var.size)*10
                 count_para += 1
             var_ind += 1
         ini_prob.solve(**kwargs)
@@ -167,11 +171,11 @@ def dccp_transform(self):
     parameters.append(tau)
     if self.objective.NAME == 'minimize':
         for var in var_slack:
-            cost_new += tau*cvx.sum_entries(var) 
+            cost_new += tau*cvx.sum_entries(var)
         obj_new = cvx.Minimize(cost_new)
     else:
         for var in var_slack:
-            cost_new -= tau*cvx.sum_entries(var) 
+            cost_new -= tau*cvx.sum_entries(var)
         obj_new = cvx.Maximize(cost_new)
     # new problem
     prob_new = cvx.Problem(obj_new, constr_new)
@@ -254,17 +258,18 @@ def iter_dccp_para(self, convex_prob, max_iter, tau, mu, tau_max, solver, **kwar
         # parameter tau
         convex_prob[1][-1].value = tau
         # solve the transformed problem
-        if solver==None:
-            print "iteration=",it, "cost value = ", convex_prob[0].solve(**kwargs), "tau = ", tau
+        if solver is None:
+            logging.info("iteration=%d, cost value=%.5f, tau=%.5f", it, convex_prob[0].solve(**kwargs), tau)
         else:
-            print "iteration=",it, "cost value = ", convex_prob[0].solve(solver = solver **kwargs), "tau = ", tau
+            logging.info("iteration=%d, cost value=%.5f, tau=%.5f", it, convex_prob[0].solve(solver=solver, **kwargs), tau)
         # print slack variables
         if not len(convex_prob[5])==0:
             max_slack = []
             for i in range(len(convex_prob[5])):
-                max_slack.append(np.max(convex_prob[5][i].value))
-            max_slack = np.max(max_slack)
-            print "max slack = ", max_slack
+                if convex_prob[5][i].value is not None:
+                    max_slack.append(np.max(convex_prob[5][i].value))
+            max_slack = max(max_slack)
+            logging.info("max slack = %.5f", max_slack)
         if np.abs(previous_cost - convex_prob[0].value) <= 1e-4: # terminate
             it = max_iter+1
         else:
@@ -375,16 +380,14 @@ def iter_dccp(self, max_iter, tau, mu, tau_max, solver, **kwargs):
             variable_pres_value.append(var.value)
         # solve
         if solver is None:
-            print "iteration=",it, "cost value = ", prob_new.solve(**kwargs), "tau = ", tau
+            logging.info("iteration=%d, cost value=%.5f, tau=%.5f", it, prob_new.solve(**kwargs), tau)
         else:
-            print "iteration=",it, "cost value = ", prob_new.solve(solver = solver, **kwargs), "tau = ", tau
+            logging.info("iteration=%d, cost value=%.5f, tau=%.5f", it, prob_new.solve(solver=solver, **kwargs), tau)
         # print slack
         if not var_slack == []:
-            max_slack = []
-            for i in range(len(var_slack)):
-                max_slack.append(np.max(var_slack[i].value))
-            max_slack = np.max(max_slack)
-            print "max slack = ", max_slack
+            slack_values = [v.value for v in var_slack if v.value is not None]
+            max_slack = max([np.max(v) for v in slack_values] + [-np.inf])
+            logging.info("max slack = %.5f", max_slack)
         #terminate
         if np.abs(previous_cost - prob_new.value) <= 1e-3 and np.abs(self.objective.value - previous_org_cost) <= 1e-3:
             it_real = it
