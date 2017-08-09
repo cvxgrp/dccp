@@ -8,7 +8,11 @@ from constraint import convexify_para_constr
 from constraint import convexify_constr
 import logging
 
-logging.basicConfig(filename='dccp.log', filemode='w', level=logging.INFO)
+logger = logging.getLogger('dccp')
+logger.addHandler(logging.FileHandler(filename='dccp.log', mode='w'))
+logger.setLevel(logging.INFO)
+logger.propagate = False
+
 
 def dccp(self, max_iter = 100, tau = 0.005, mu = 1.2, tau_max = 1e8,
          solver = None, ccp_times = 1, **kwargs):
@@ -195,6 +199,7 @@ def iter_dccp_para(self, convex_prob, max_iter, tau, mu, tau_max, solver, **kwar
     """
     # keep the values from the initialization
     # split non-affine equality constraints
+
     constr = []
     for arg in self.constraints:
         if arg.OP_NAME == "==" and not arg.is_dcp():
@@ -259,9 +264,9 @@ def iter_dccp_para(self, convex_prob, max_iter, tau, mu, tau_max, solver, **kwar
         convex_prob[1][-1].value = tau
         # solve the transformed problem
         if solver is None:
-            logging.info("iteration=%d, cost value=%.5f, tau=%.5f", it, convex_prob[0].solve(**kwargs), tau)
+            logger.info("iteration=%d, cost value=%.5f, tau=%.5f", it, convex_prob[0].solve(**kwargs), tau)
         else:
-            logging.info("iteration=%d, cost value=%.5f, tau=%.5f", it, convex_prob[0].solve(solver=solver, **kwargs), tau)
+            logger.info("iteration=%d, cost value=%.5f, tau=%.5f", it, convex_prob[0].solve(solver=solver, **kwargs), tau)
         # print slack variables
         if not len(convex_prob[5])==0:
             max_slack = []
@@ -269,7 +274,7 @@ def iter_dccp_para(self, convex_prob, max_iter, tau, mu, tau_max, solver, **kwar
                 if convex_prob[5][i].value is not None:
                     max_slack.append(np.max(convex_prob[5][i].value))
             max_slack = max(max_slack)
-            logging.info("max slack = %.5f", max_slack)
+            logger.info("max slack = %.5f", max_slack)
         if np.abs(previous_cost - convex_prob[0].value) <= 1e-4: # terminate
             it = max_iter+1
         else:
@@ -297,6 +302,7 @@ def iter_dccp(self, max_iter, tau, mu, tau_max, solver, **kwargs):
         value of the objective function, maximum value of slack variables, value of variables
     """
     # split non-affine equality constraints
+
     constr = []
     for arg in self.constraints:
         if arg.OP_NAME == "==" and not arg.is_dcp():
@@ -380,15 +386,15 @@ def iter_dccp(self, max_iter, tau, mu, tau_max, solver, **kwargs):
             variable_pres_value.append(var.value)
         # solve
         if solver is None:
-            logging.info("iteration=%d, cost value=%.5f, tau=%.5f", it, prob_new.solve(**kwargs), tau)
+            logger.info("iteration=%d, cost value=%.5f, tau=%.5f", it, prob_new.solve(**kwargs), tau)
         else:
-            logging.info("iteration=%d, cost value=%.5f, tau=%.5f", it, prob_new.solve(solver=solver, **kwargs), tau)
+            logger.info("iteration=%d, cost value=%.5f, tau=%.5f", it, prob_new.solve(solver=solver, **kwargs), tau)
         max_slack = None       
         # print slack
         if (prob_new._status == "optimal" or prob_new._status == "optimal_inaccurate") and not var_slack == []:
             slack_values = [v.value for v in var_slack if v.value is not None]
             max_slack = max([np.max(v) for v in slack_values] + [-np.inf])
-            logging.info("max slack = %.5f", max_slack)
+            logger.info("max slack = %.5f", max_slack)
         #terminate
         if np.abs(previous_cost - prob_new.value) <= 1e-3 and np.abs(self.objective.value - previous_org_cost) <= 1e-3:
             it_real = it
