@@ -6,7 +6,7 @@ It tries to solve nonconvex problems where all expressions have known curvature 
 
 Installation
 ------------
-You should first install [CVXPY](http://ww.cvxpy.org/), following the instructions [here](http://www.cvxpy.org/en/latest/install/index.html).
+You should first install [CVXPY](http://www.cvxpy.org/), following the instructions [here](http://www.cvxpy.org/en/latest/install/index.html).
 Then install DCCP by running ``pip install dccp``.
 To install from source, clone the repository and run ``python setup.py install`` inside.
 
