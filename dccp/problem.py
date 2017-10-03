@@ -37,7 +37,7 @@ def dccp(self, max_iter = 100, tau = 0.005, mu = 1.2, tau_max = 1e8,
     else:
         cost_value = -float("inf")
     for t in range(ccp_times): # for each time of running ccp
-        dccp_ini(self, random=(ccp_times>1), **kwargs) # initialization; random initial value is mandatory if ccp_times>1
+        dccp_ini(self, random=(ccp_times>1), solver = solver, **kwargs) # initialization; random initial value is mandatory if ccp_times>1
         # iterations
         result_temp = iter_dccp(self, max_iter, tau, mu, tau_max, solver, **kwargs)
         if result_temp[0] is not None:
@@ -49,7 +49,7 @@ def dccp(self, max_iter = 100, tau = 0.005, mu = 1.2, tau_max = 1e8,
                     cost_value = result_temp[0] # update the record on the best cost value
     return result
 
-def dccp_ini(self, times = 3, random = 0, **kwargs):
+def dccp_ini(self, times = 3, random = 0, solver = None, **kwargs):
     """
     set initial values
     :param times: number of random projections for each variable
@@ -88,7 +88,10 @@ def dccp_ini(self, times = 3, random = 0, **kwargs):
                 value_para[count_para].value = np.random.randn(*var.size)*10
                 count_para += 1
             var_ind += 1
-        ini_prob.solve(**kwargs)
+        if solver is None:
+            ini_prob.solve(**kwargs)
+        else:
+            ini_prob.solve(solver = solver, **kwargs)
         var_ind = 0
         for var in self.variables():
             var_store[var_ind] = var_store[var_ind] + var.value/float(times) # average
