@@ -2,11 +2,12 @@ __author__ = 'Xinyue'
 
 import numpy as np
 import cvxpy as cvx
-from objective import convexify_obj
-from objective import convexify_para_obj
-from constraint import convexify_para_constr
-from constraint import convexify_constr
 import logging
+
+from dccp.objective import convexify_obj
+from dccp.objective import convexify_para_obj
+from dccp.constraint import convexify_para_constr
+from dccp.constraint import convexify_constr
 
 logger = logging.getLogger('dccp')
 logger.addHandler(logging.FileHandler(filename='dccp.log', mode='w'))
@@ -15,7 +16,7 @@ logger.propagate = False
 
 
 def dccp(self, max_iter = 100, tau = 0.005, mu = 1.2, tau_max = 1e8,
-         solver = None, ccp_times = 1, **kwargs):
+         solver = None, ccp_times = 1, max_slack = 1e-4, **kwargs):
     """
     main algorithm ccp
     :param max_iter: maximum number of iterations in ccp
@@ -44,7 +45,7 @@ def dccp(self, max_iter = 100, tau = 0.005, mu = 1.2, tau_max = 1e8,
             if (self.objective.NAME == 'minimize' and result_temp[0]<cost_value) \
             or (self.objective.NAME == 'maximize' and result_temp[0]>cost_value): # find a better cost value
                 # first ccp; no slack; slack small enough
-                if t==0 or len(result_temp)<3 or result[1] < 1e-4:
+                if t==0 or len(result_temp)<3 or result[1] < max_slack:
                     result = result_temp # update the result
                     cost_value = result_temp[0] # update the record on the best cost value
     return result
@@ -58,7 +59,7 @@ def dccp_ini(self, times = 3, random = 0, solver = None, **kwargs):
     dom_constr = self.objective.args[0].domain # domain of the objective function
     for arg in self.constraints:
         for l in range(2):
-            for dom in arg.args[l].domain:
+            for dom in arg.expr.args[l].domain:
                 dom_constr.append(dom) # domain on each side of constraints
     var_store = [] # store initial values for each variable
     init_flag = [] # indicate if any variable is initialized by the user
@@ -71,7 +72,7 @@ def dccp_ini(self, times = 3, random = 0, solver = None, **kwargs):
     value_para = []
     for var in self.variables():
         if init_flag[var_ind] or random: # if the variable is not initialized by the user, or random initialization is mandatory
-            value_para.append(cvx.Parameter(*var.size))
+            value_para.append(cvx.Parameter(var.size))
             ini_cost += cvx.pnorm(var-value_para[-1], 2)
         var_ind += 1
     ini_obj = cvx.Minimize(ini_cost)
@@ -85,7 +86,7 @@ def dccp_ini(self, times = 3, random = 0, solver = None, **kwargs):
             # initialization is mandatory
             if init_flag[var_ind] or random:
                 # set a random point
-                value_para[count_para].value = np.random.randn(*var.size)*10
+                value_para[count_para].value = np.random.randn(var.size)*10
                 count_para += 1
             var_ind += 1
         if solver is None:
@@ -111,8 +112,8 @@ def is_dccp(problem):
         a boolean indicating if the problem is dccp
     """
     flag = True
-    for constr in problem.constraints + [problem.objective]:
-        for arg in constr.args:
+    for constr in problem.constraints + problem.objective.args:
+        for arg in constr.expr.args:
             if arg.curvature == 'UNKNOWN':
                 flag = False
                 return flag
@@ -132,7 +133,7 @@ def dccp_transform(self):
     # split non-affine equality constraints
     constr = []
     for arg in self.constraints:
-        if arg.OP_NAME == "==" and not arg.is_dcp():
+        if str(type(arg)) == "<class 'cvxpy.constraints.zero.Zero'>" and not arg.is_dcp():
             constr.append(arg[0]<=arg[1])
             constr.append(arg[1]<=arg[0])
         else:
@@ -178,11 +179,11 @@ def dccp_transform(self):
     parameters.append(tau)
     if self.objective.NAME == 'minimize':
         for var in var_slack:
-            cost_new += tau*cvx.sum_entries(var)
+            cost_new += tau*cvx.sum(var)
         obj_new = cvx.Minimize(cost_new)
     else:
         for var in var_slack:
-            cost_new -= tau*cvx.sum_entries(var)
+            cost_new -= tau*cvx.sum(var)
         obj_new = cvx.Maximize(cost_new)
     # new problem
     prob_new = cvx.Problem(obj_new, constr_new)
@@ -205,9 +206,9 @@ def iter_dccp_para(self, convex_prob, max_iter, tau, mu, tau_max, solver, **kwar
 
     constr = []
     for arg in self.constraints:
-        if arg.OP_NAME == "==" and not arg.is_dcp():
-            constr.append(arg[0]<=arg[1])
-            constr.append(arg[0]>=arg[1])
+        if str(type(arg)) == "<class 'cvxpy.constraints.zero.Zero'>" and not arg.is_dcp():
+            constr.append(arg.expr.args[0]<=arg.expr.args[1])
+            constr.append(arg.expr.args[0]>=arg.expr.args[1])
         else:
             constr.append(arg)
     self.constraints = constr
@@ -305,16 +306,15 @@ def iter_dccp(self, max_iter, tau, mu, tau_max, solver, **kwargs):
         value of the objective function, maximum value of slack variables, value of variables
     """
     # split non-affine equality constraints
-
     constr = []
     for arg in self.constraints:
-        if arg.OP_NAME == "==" and not arg.is_dcp():
-            constr.append(arg.args[0]<=arg.args[1])
-            constr.append(arg.args[1]<=arg.args[0])
+        if str(type(arg)) == "<class 'cvxpy.constraints.zero.Zero'>" and not arg.is_dcp():
+            constr.append(arg.expr.args[0]<=arg.expr.args[1])
+            constr.append(arg.expr.args[1]<=arg.expr.args[0])
         else:
             constr.append(arg)
-    self.constraints = constr
-
+    obj = self.objective
+    self = cvx.Problem(obj, constr)
     it = 1
     converge = False
     # keep the values from the previous iteration or initialization
@@ -327,8 +327,7 @@ def iter_dccp(self, max_iter, tau, mu, tau_max, solver, **kwargs):
     var_slack = []
     for constr in self.constraints:
         if not constr.is_dcp():
-            rows, cols = constr.size
-            var_slack.append(cvx.Variable(rows, cols))
+            var_slack.append(cvx.Variable(constr.size))
 
     while it<=max_iter and all(var.value is not None for var in self.variables()):
         constr_new = []
@@ -364,8 +363,8 @@ def iter_dccp(self, max_iter, tau, mu, tau_max, solver, **kwargs):
                 newcon = temp[0]  # new constraint without slack variable
                 for dom in temp[1]:# domain
                     constr_new.append(dom)
-                right = newcon.args[1] + var_slack[count_slack]
-                constr_new.append(newcon.args[0]<=right)
+                right = newcon.expr.args[1] + var_slack[count_slack]
+                constr_new.append(newcon.expr.args[0]<=right)
                 constr_new.append(var_slack[count_slack]>=0)
                 count_slack = count_slack+1
             else:
@@ -374,11 +373,11 @@ def iter_dccp(self, max_iter, tau, mu, tau_max, solver, **kwargs):
         # objective
         if self.objective.NAME == 'minimize':
             for var in var_slack:
-                cost_new += tau*cvx.sum_entries(var)
+                cost_new += tau*cvx.sum(var)
             obj_new = cvx.Minimize(cost_new)
         else:
             for var in var_slack:
-                cost_new -= tau*cvx.sum_entries(var)
+                cost_new -= tau*cvx.sum(var)
             obj_new = cvx.Maximize(cost_new)
 
         # new problem

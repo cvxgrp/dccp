@@ -1,8 +1,9 @@
 __author__ = 'Xinyue'
 
-from linearize import linearize
-from linearize import linearize_para
+from dccp.linearize import linearize, linearize_para
+import cvxpy as cvx
 
+#from dccp.linearize import linearize_para
 def convexify_para_constr(self):
     """
     input:
@@ -21,25 +22,25 @@ def convexify_para_constr(self):
     if not self.is_dcp():
         dom = [] # domain
         para = [] # a list for parameters
-        if self.args[0].curvature == 'CONCAVE': # left-hand concave
-            lin = linearize_para(self.args[0]) # linearize the expression
+        if self.expr.args[0].curvature == 'CONCAVE': # left-hand concave
+            lin = linearize_para(self.expr.args[0]) # linearize the expression
             left = lin[0]
             para.append([lin[1],lin[2]]) # [zero order parameter, {variable: [value parameter, [gradient parameter]]}]
             for con in lin[3]:
                 dom.append(con)
         else:
-            left = self.args[0]
+            left = self.expr.args[0]
             para.append([]) # appending an empty list indicates the expression has the right curvature
-        if self.args[1].curvature == 'CONVEX': # right-hand convex
-            lin = linearize_para(self.args[1]) # linearize the expression
-            right = lin[0]
+        if self.expr.args[1].curvature == 'CONCAVE': # negative right-hand must be concave (right-hand is convex)
+            lin = linearize_para(self.expr.args[1]) # linearize the expression
+            neg_right = lin[0]
             para.append([lin[1],lin[2]])
             for con in lin[3]:
                 dom.append(con)
         else:
-            right = self.args[1]
+            neg_right = self.expr.args[1]
             para.append([])
-        return left<=right, para, dom
+        return left + neg_right <= 0, para, dom
     else:
         return self
 
@@ -54,25 +55,25 @@ def convexify_constr(constr):
     if not constr.is_dcp():
         dom = []
         # left hand concave
-        if constr.args[0].curvature == 'CONCAVE':
-            left = linearize(constr.args[0])
+        if constr.expr.args[0].curvature == 'CONCAVE':
+            left = linearize(constr.expr.args[0])
             if left is None:
                 return None
             else:
-                for con in constr.args[0].domain:
+                for con in constr.expr.args[0].domain:
                     dom.append(con)
         else:
-            left = constr.args[0]
-        #right hand convex
-        if constr.args[1].curvature == 'CONVEX':
-            right = linearize(constr.args[1])
-            if right is None:
+            left = constr.expr.args[0]
+        #right hand concave since the right-hand expression captures the minus sign
+        if constr.expr.args[1].curvature == 'CONCAVE':
+            neg_right = linearize(constr.expr.args[1])
+            if neg_right is None:
                 return None
             else:
-                for con in constr.args[1].domain:
+                for con in constr.expr.args[1].domain:
                     dom.append(con)
         else:
-            right = constr.args[1]
-        return left<=right, dom
+            neg_right = constr.expr.args[1]
+        return left + neg_right <= 0, dom
     else:
         return constr
