@@ -1,8 +1,8 @@
 __author__ = 'Xinyue'
-from linearize import linearize
-from linearize import linearize_para
-from cvxpy import *
+from dccp.linearize import linearize, linearize_para
+import cvxpy as cvx
 
+#from linearize import linearize_para
 def convexify_para_obj(obj):
     """
     input:
@@ -17,9 +17,9 @@ def convexify_para_obj(obj):
         the domain
     """
     if obj.is_dcp() == False:
-        return linearize_para(obj.args[0])
+        return linearize_para(obj.expr)
     else:
-        return obj.args[0]
+        return obj.expr
 
 def is_dccp(objective):
     """
@@ -41,15 +41,15 @@ def convexify_obj(obj):
     """
     # not dcp
     if obj.is_dcp() == False:
-        lin = linearize(obj.args[0])
+        lin = linearize(obj.expr)
         # non-sub/super-diff
         if lin is None:
             return None
         else:
             if obj.NAME == 'minimize':
-                result = Minimize(lin)
+                result = cvx.Minimize(lin)
             else:
-                result = Maximize(lin)
+                result = cvx.Maximize(lin)
     else:
         result = obj
     return result

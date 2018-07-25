@@ -6,7 +6,7 @@ It tries to solve nonconvex problems where all expressions have known curvature 
 
 Installation
 ------------
-You should first install [CVXPY](http://ww.cvxpy.org/), following the instructions [here](http://www.cvxpy.org/en/latest/install/index.html).
+You should first install [CVXPY](http://www.cvxpy.org/), following the instructions [here](http://www.cvxpy.org/en/latest/install/index.html).
 Then install DCCP by running ``pip install dccp``.
 To install from source, clone the repository and run ``python setup.py install`` inside.
 
@@ -26,7 +26,7 @@ In a disciplined convex program, the curvatures of ``o``, ``l_i``, and ``r_i`` a
 Example
 -------
 The following code uses DCCP to approximately solve a simple nonconvex problem.
-```
+```python
 from cvxpy import *
 import dccp
 x = Variable(2)
@@ -58,7 +58,7 @@ The solutions obtained by DCCP depend heavily on the initial point the CCP algor
 By default the algorithm starts from a random initial point.
 You can specify an initial point manually by setting the ``value`` field of the problem variables.
 For example, the following code runs the CCP algorithm with the specified initial values for ``x`` and ``y``:
-```
+```python
 x.value = numpy.array([1,2])
 y.value = numpy.array([-1,1])
 result = myprob.solve(method = 'dccp')
