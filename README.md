@@ -4,6 +4,8 @@ DCCP
 DCCP package provides an organized heuristic for convex-concave programming.
 It tries to solve nonconvex problems where all expressions have known curvature according to the rules of disciplined convex programming (DCP) but the objective and constraint right and left-hand sides may have any curvature (e.g., maximizing a convex expression). The full details of our approach are discussed in [the associated paper](https://stanford.edu/~boyd/papers/dccp.html). DCCP is built on top of [CVXPY](http://www.cvxpy.org/), a domain-specific language for convex optimization embedded in Python.
 
+DCCP is now available for CVXPY 1.0
+
 Installation
 ------------
 You should first install [CVXPY](http://www.cvxpy.org/), following the instructions [here](http://www.cvxpy.org/en/latest/install/index.html).
@@ -27,17 +29,17 @@ Example
 -------
 The following code uses DCCP to approximately solve a simple nonconvex problem.
 ```python
-from cvxpy import *
+import cvxpy as cvx
 import dccp
-x = Variable(2)
-y = Variable(2)
-myprob = Problem(Maximize(norm(x-y,2)), [0<=x, x<=1, 0<=y, y<=1])
-print "problem is DCP:", myprob.is_dcp()   # false
-print "problem is DCCP:", dccp.is_dccp(myprob)  # true
+x = cvx.Variable(2)
+y = cvx.Variable(2)
+myprob = cvx.Problem(cvx.Maximize(cvx.norm(x-y,2)), [0<=x, x<=1, 0<=y, y<=1])
+print("problem is DCP:", myprob.is_dcp())   # false
+print("problem is DCCP:", dccp.is_dccp(myprob))  # true
 result = myprob.solve(method = 'dccp')
-print "x =", x.value
-print "y =", y.value
-print "cost value =", result[0]
+print("x =", x.value)
+print("y =", y.value)
+print("cost value =", result[0])
 ```
 The output of the above code is as follows.
 ```
