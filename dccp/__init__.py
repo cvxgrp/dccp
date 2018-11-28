@@ -4,4 +4,4 @@ from dccp.objective import convexify_obj
 from dccp.constraint import convexify_constr
 
 __author__ = 'Xinyue'
-__version___ = "0.1.6"
+__version___ = "0.1.7"
