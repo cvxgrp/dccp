@@ -309,8 +309,8 @@ def iter_dccp(self, max_iter, tau, mu, tau_max, solver, **kwargs):
     constr = []
     for arg in self.constraints:
         if str(type(arg)) == "<class 'cvxpy.constraints.zero.Zero'>" and not arg.is_dcp():
-            constr.append(arg.expr.args[0]<=arg.expr.args[1])
-            constr.append(arg.expr.args[1]<=arg.expr.args[0])
+            constr.append(arg.expr.args[0] + arg.expr.args[1] <= 0)
+            constr.append(arg.expr.args[1] + arg.expr.args[0] >= 0)
         else:
             constr.append(arg)
     obj = self.objective
