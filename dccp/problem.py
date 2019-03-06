@@ -363,8 +363,8 @@ def iter_dccp(self, max_iter, tau, mu, tau_max, solver, **kwargs):
                 newcon = temp[0]  # new constraint without slack variable
                 for dom in temp[1]:# domain
                     constr_new.append(dom)
-                right = newcon.expr.args[1] + var_slack[count_slack]
-                constr_new.append(newcon.expr.args[0]<=right)
+                neg_right = newcon.expr.args[1] - var_slack[count_slack]
+                constr_new.append(newcon.expr.args[0] + neg_right <= 0)
                 constr_new.append(var_slack[count_slack]>=0)
                 count_slack = count_slack+1
             else:
