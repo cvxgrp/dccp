@@ -2,6 +2,7 @@ __author__ = 'Xinyue'
 from cvxpy import *
 import dccp
 from dccp.problem import is_dccp
+import matplotlib.pyplot as plt
 
 x = Variable(2)
 y = Variable(2)
@@ -14,4 +15,3 @@ print "========================"
 print "x =", x.value
 print "y =", y.value
 print "cost value =", result[0]
-print myprob.status

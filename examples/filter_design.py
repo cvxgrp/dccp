@@ -18,7 +18,7 @@ for omg_ind in range(N):
     expo.append(np.matrix([cosine, sine]))
 
 h = Variable(n)
-U_stop = Variable()
+U_stop = Variable(1)
 constr = []
 for l in range(N):
     if l < l_pass:
@@ -28,8 +28,7 @@ for l in range(N):
     else:
         constr += [norm(expo[l]*h,2) <= U_stop]
 prob = Problem(Minimize(U_stop), constr)
-result = prob.solve(method = 'dccp', ccp_times = 3)
-print prob.status
+result = prob.solve(method = 'dccp', ccp_times = 1)
 
 # plot
 plt.figure(figsize=(5,5))
