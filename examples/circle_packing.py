@@ -1,24 +1,24 @@
 __author__ = 'Xinyue'
-from cvxpy import *
+import cvxpy as cvx
 import numpy as np
 import matplotlib.pyplot as plt
 import dccp
+np.random.seed(0)
+n = 4
+r = np.linspace(1, 5, n)
 
-n = 10
-r = np.linspace(1,5,n)
-
-c = Variable(n,2)
+c = cvx.Variable((n,2))
 constr = []
 for i in range(n-1):
-    for j in range(i+1,n):
-        constr.append(norm(c[i,:]-c[j,:])>=r[i]+r[j])
-prob = Problem(Minimize(max_entries(max_entries(abs(c),axis=1)+r)), constr)
-#prob = Problem(Minimize(max_entries(normInf(c,axis=1)+r)), constr)
-prob.solve(method = 'dccp', ccp_times = 1)
+    for j in range(i+1, n):
+        constr.append(cvx.norm(cvx.vec(c[i,:]-c[j,:]), 2) >= r[i]+r[j])
+prob = cvx.Problem(cvx.Minimize(cvx.max(cvx.max(cvx.abs(c), axis=1) + r)), constr)
+#prob = cvx.Problem(cvx.Minimize(cvx.max(cvx.norm(c, "inf", axis=1) + r)), constr)
+prob.solve(method = 'dccp', tau=0.000005, ccp_times = 1)
 
-l = max_entries(max_entries(abs(c),axis=1)+r).value*2
+l = cvx.max(cvx.max(cvx.abs(c),axis=1)+r).value*2
 pi = np.pi
-ratio = pi*sum_entries(square(r)).value/square(l).value
+ratio = pi*cvx.sum(cvx.square(r)).value/cvx.square(l).value
 print "ratio =", ratio
 print prob.status
 
