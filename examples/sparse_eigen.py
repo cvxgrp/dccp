@@ -16,8 +16,7 @@ Sigma += 1
 A = np.dot(U, np.dot(np.diag(Sigma), V))
 
 ######################smallest singular value
-#lambd_min = Parameter(sign="Positive")
-mu_min = Parameter(sign = "positive")
+mu_min = Parameter(nonneg=True)
 x_min = Variable(n)
 #cost_min = norm(A*x_min)+lambd_min*norm(x_min,1)
 cost_min = norm(A*x_min)
@@ -31,7 +30,7 @@ x_min_result = []
 mu_vals = np.linspace(1,np.sqrt(n),50)
 for val in mu_vals:
     mu_min.value = val
-    prob_min.solve(method='dccp', solver = 'SCS')
+    prob_min.solve(method='dccp')
     singular_min_value.append(norm(A*x_min).value)
     card_min.append(np.sum(np.abs(x_min.value)>=1e-2))
     x_min_result.append(x_min.value)
@@ -57,16 +56,13 @@ for ind in range(len(card_min)):
         count.append(1)
     else:
         temp_ind = card_plot.index(card_min[ind])
-        s_value_plot[temp_ind] = min([s_value_plot[temp_ind],singular_min_value[ind]])
+        s_value_plot[temp_ind] = np.min([s_value_plot[temp_ind],singular_min_value[ind]])
         count[temp_ind] += 1
 plt.plot(s_value_plot,card_plot,'r o')
 plt.ylim([0,6])
 plt.grid()
 plt.xlabel(r'$\|\|Ax\|\|_2/\sigma_{\mathrm{min}}$', fontsize=16)
 plt.ylabel('card($x$)', fontsize=16)
-print card_min
-print count
-#print col_norm(A,2).value
 print "singular values = ", Sigma
 plt.show()
 
