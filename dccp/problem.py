@@ -31,7 +31,6 @@ def dccp(self, max_iter = 100, tau = 0.005, mu = 1.2, tau_max = 1e8,
     if not is_dccp(self):
         raise Exception("Problem is not DCCP.")
 
-    #convex_prob = dccp_transform(self) # convexify problem
     result = None
     if self.objective.NAME == 'minimize':
         cost_value = float("inf") # record on the best cost value
@@ -50,7 +49,7 @@ def dccp(self, max_iter = 100, tau = 0.005, mu = 1.2, tau_max = 1e8,
                     cost_value = result_temp[0] # update the record on the best cost value
     return result
 
-def dccp_ini(self, times = 3, random = 0, solver = None, **kwargs):
+def dccp_ini(self, times = 1, random = 0, solver = None, **kwargs):
     """
     set initial values
     :param times: number of random projections for each variable
@@ -63,9 +62,14 @@ def dccp_ini(self, times = 3, random = 0, solver = None, **kwargs):
                 dom_constr.append(dom) # domain on each side of constraints
     var_store = [] # store initial values for each variable
     init_flag = [] # indicate if any variable is initialized by the user
+    var_user_ini = []
     for var in self.variables():
         var_store.append(np.zeros(var.shape)) # to be averaged
         init_flag.append(var.value is None)
+        if var.value is None:
+            var_user_ini.append(np.zeros(var.shape))
+        else:
+            var_user_ini.append(var.value)
     # setup the problem
     ini_cost = 0
     var_ind = 0
@@ -76,7 +80,7 @@ def dccp_ini(self, times = 3, random = 0, solver = None, **kwargs):
             ini_cost += cvx.pnorm(var-value_para[-1], 2)
         var_ind += 1
     ini_obj = cvx.Minimize(ini_cost)
-    ini_prob = cvx.Problem(ini_obj,dom_constr)
+    ini_prob = cvx.Problem(ini_obj, dom_constr)
     # solve it several times with random points
     for t in range(times): # for each time of random projection
         count_para = 0
@@ -105,7 +109,9 @@ def dccp_ini(self, times = 3, random = 0, solver = None, **kwargs):
     for var in self.variables():
         if init_flag[var_ind] or random:
             var.value = var_store[var_ind]
-            var_ind += 1
+        else:
+            var.value = var_user_ini[var_ind]
+        var_ind += 1
 
 def is_dccp(problem):
     """
@@ -114,13 +120,11 @@ def is_dccp(problem):
     :return
         a boolean indicating if the problem is dccp
     """
-    flag = True
     for constr in problem.constraints + problem.objective.args:
         for arg in constr.expr.args:
             if arg.curvature == 'UNKNOWN':
-                flag = False
-                return flag
-    return flag
+                return False
+    return True
 
 
 def iter_dccp(self, max_iter, tau, mu, tau_max, solver, **kwargs):

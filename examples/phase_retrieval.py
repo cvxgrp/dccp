@@ -16,20 +16,19 @@ yi = np.dot(Ar,x0i)-np.dot(Ai,x0r)
 y = np.power(yr,2) + np.power(yi,2)
 y = np.power(y,0.5)
 # solve
-xr = Variable(n)
-xi = Variable(n)
-x = Variable(2,n)
+xr = Variable((n,1))
+xi = Variable((n,1))
+x = Variable((2,n))
 z = []
 constr = []
 c = np.matrix([[0,1],[-1,0]])
 for k in range(m):
-    z.append(Variable(2))
-    z[-1].value = -np.random.rand(2,1)
+    z.append(Variable((2,1)))
+    z[-1].value = -np.random.rand(2, 1)
     constr.append(norm(z[-1]) == y[k])
-    constr += [z[-1] == x*Ar[k,:] + c*x*Ai[k,:]]
+    constr += [z[-1] == x*np.reshape(Ar[k,:], (n, 1)) + c*x*np.reshape(Ai[k,:], (n,1))]
 prob = Problem(Minimize(0),constr)
-result = prob.solve(method='dccp',solver = 'SCS')
-print prob.status
+result = prob.solve(method='dccp')
 # plot
 fig, (ax0, ax1) = plt.subplots(nrows=2, figsize=(10,8))
 tan = np.array(x[0,:].value/x[1,:].value)[0]

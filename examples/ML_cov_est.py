@@ -21,32 +21,32 @@ neg = cov<0
 zero = cov==0
 
 y = np.zeros((n,N))
-Sigma = Variable(n,n)
+Sigma = Variable((n,n))
+
 t = Variable(1)
 cost = log_det(Sigma) + t
+t.value = [1]
+Sigma.value = np.eye(n)
 
 emp = np.zeros((n,n))
 for k in range(N):
     y[:,k] = np.random.multivariate_normal(mean,cov)
     emp = emp + np.dot(np.matrix(y[:,k]).T,np.matrix(y[:,k]))/N
-trace_val = trace(sum([matrix_frac(y[:,i], Sigma)/N for i in range(N)]))
-constr = [trace_val<=t, mul_elemwise(pos,Sigma) >= 0, mul_elemwise(neg,Sigma) <= 0, mul_elemwise(zero,Sigma) == 0]
+temp = sum([matrix_frac(y[:,i], Sigma)/N for i in range(N)])
+trace_val = temp
+constr = [trace_val<=t, multiply(pos,Sigma) >= 0, multiply(neg,Sigma) <= 0, multiply(zero,Sigma) == 0]
 prob = Problem(Minimize(cost), constr)
-prob.solve(method='dccp', solver = 'SCS')
-print prob.status
+prob.solve(method='dccp', max_iter = 10, solver = 'SCS')
 
 # plot
 plt.figure(figsize = (15,5))
 plt.subplot(131)
 plt.imshow(Sigma.value,interpolation='none')
 plt.title('optimize over $\Sigma$ with signs')
-plt.colorbar()
 plt.subplot(132)
 plt.imshow(emp,interpolation='none')
 plt.title('empirical covariance')
-plt.colorbar()
 plt.subplot(133)
 plt.imshow(cov,interpolation='none')
 plt.title('true covariance')
-plt.colorbar()
 plt.show()
