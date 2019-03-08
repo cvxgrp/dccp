@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import dccp
 np.random.seed(0)
-n = 4
+n = 10
 r = np.linspace(1, 5, n)
 
 c = cvx.Variable((n,2))
@@ -13,15 +13,12 @@ for i in range(n-1):
     for j in range(i+1, n):
         constr.append(cvx.norm(cvx.vec(c[i,:]-c[j,:]), 2) >= r[i]+r[j])
 prob = cvx.Problem(cvx.Minimize(cvx.max(cvx.max(cvx.abs(c), axis=1) + r)), constr)
-#prob = cvx.Problem(cvx.Minimize(cvx.max(cvx.norm(c, "inf", axis=1) + r)), constr)
-prob.solve(method = 'dccp', tau=0.000005, ccp_times = 1)
+prob.solve(method = 'dccp', ep = 1e-2, max_slack = 1e-2)
 
 l = cvx.max(cvx.max(cvx.abs(c),axis=1)+r).value*2
 pi = np.pi
 ratio = pi*cvx.sum(cvx.square(r)).value/cvx.square(l).value
 print "ratio =", ratio
-print prob.status
-
 # plot
 plt.figure(figsize=(5,5))
 circ = np.linspace(0,2*pi)
