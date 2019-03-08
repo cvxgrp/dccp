@@ -5,6 +5,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import dccp
 
+np.random.seed(0)
+
 T = 100
 l = 6.0
 m = 1
@@ -54,9 +56,8 @@ for t in range(T):
     for i in range(n-1):
         for j in range(i+1,n):
             constr += [norm(y[i][t] - y[j][t]) >= d_min]
-#cost = sum([norm(u[i],1) for i in range(n)])
 prob = Problem(Minimize(cost), constr)
-prob.solve(method='dccp', tau = 0.001 )
+prob.solve(method='dccp', ep = 1e-1)
 ###################################################
 ################ without avoidence ###############
 u_c = []

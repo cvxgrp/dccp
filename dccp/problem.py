@@ -16,7 +16,7 @@ logger.propagate = False
 
 
 def dccp(self, max_iter = 100, tau = 0.005, mu = 1.2, tau_max = 1e8,
-         solver = None, ccp_times = 1, max_slack = 1e-3, **kwargs):
+         solver = None, ccp_times = 1, max_slack = 1e-3, ep = 1e-5, **kwargs):
     """
     main algorithm ccp
     :param max_iter: maximum number of iterations in ccp
@@ -39,7 +39,7 @@ def dccp(self, max_iter = 100, tau = 0.005, mu = 1.2, tau_max = 1e8,
     for t in range(ccp_times): # for each time of running ccp
         dccp_ini(self, random=(ccp_times>1), solver = solver, **kwargs) # initialization; random initial value is mandatory if ccp_times>1
         # iterations
-        result_temp = iter_dccp(self, max_iter, tau, mu, tau_max, solver, **kwargs)
+        result_temp = iter_dccp(self, max_iter, tau, mu, tau_max, solver, ep, max_slack, **kwargs)
         if result_temp[0] is not None:
             if (self.objective.NAME == 'minimize' and result_temp[0]<cost_value) \
             or (self.objective.NAME == 'maximize' and result_temp[0]>cost_value): # find a better cost value
@@ -127,7 +127,7 @@ def is_dccp(problem):
     return True
 
 
-def iter_dccp(self, max_iter, tau, mu, tau_max, solver, **kwargs):
+def iter_dccp(self, max_iter, tau, mu, tau_max, solver, ep, max_slack_tol, **kwargs):
     """
     ccp iterations
     :param max_iter: maximum number of iterations in ccp
@@ -230,7 +230,8 @@ def iter_dccp(self, max_iter, tau, mu, tau_max, solver, **kwargs):
             max_slack = max([np.max(v) for v in slack_values] + [-np.inf])
             logger.info("max slack = %.5f", max_slack)
         #terminate
-        if np.abs(previous_cost - prob_new.value) <= 1e-5 and np.abs(self.objective.value - previous_org_cost) <= 1e-5:
+        if np.abs(previous_cost - prob_new.value) <= ep and np.abs(self.objective.value - previous_org_cost) <= ep \
+                and (max_slack is None or max_slack <= max_slack_tol ):
             it_real = it
             it = max_iter+1
             converge = True
