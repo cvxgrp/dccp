@@ -56,7 +56,11 @@ def linearize(expr):
         grad_map = expr.grad
         for var in expr.variables():
             if var.ndim > 1:
-                flattened = np.transpose(grad_map[var])*cvx.vec(var - var.value)
+                if grad_map[var] is None:
+                    return None
+                temp =cvx.reshape(cvx.vec(var - var.value), (var.shape[0]*var.shape[1], 1))
+                flattened = np.transpose(grad_map[var])*temp
+                #print "here", grad_map[var] is None, np.transpose(grad_map[var]).shape, temp.shape, flattened.shape
                 tangent = tangent + cvx.reshape(flattened, expr.shape)
             else:
                 tangent = tangent + np.transpose(grad_map[var])*(var - var.value)

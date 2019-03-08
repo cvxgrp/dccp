@@ -22,10 +22,11 @@ for time in range(T):
             A = np.random.randn(mm,n)
             y = np.dot(A,x0)
             # sqrt of 0.5-norm minimization
-            x_pos = Variable(n,1)
+            x_pos = Variable(shape=((n,1)), nonneg=True)
             x_pos.value = np.ones((n,1))
-            prob = Problem(Minimize(sum_entries(sqrt(x_pos))), [A*x_pos==y])
-            result = prob.solve(method='dccp',solver = 'MOSEK')
+            cost = reshape(sum(sqrt(x_pos),axis=0), (1,1))
+            prob = Problem(Minimize(cost), [A*x_pos==y])
+            result = prob.solve(method='dccp', solver = 'SCS')
 
             if pnorm(x_pos - x0,2).value/pnorm(x0,2).value <=1e-2:
                 indm = m.index(mm)
@@ -33,7 +34,7 @@ for time in range(T):
                 proba[indm,indk] += 1/float(T)
 
             #l1 minimization
-            xl1 = Variable(n,1)
+            xl1 = Variable((n,1))
             cost = pnorm(xl1,1)
             obj = Minimize(cost)
             constr = [A*xl1==y]
@@ -66,5 +67,6 @@ plt.ylabel("number of measurements")
 ax.set_title("probability of recovery")
 plt.show()
 
+# to run sparse_recovery_plot.py later, please save the following files
 #np.save("sparse_rec/data100", proba)
 #np.save("sparse_rec/data100_l1", proba_l1)
