@@ -5,15 +5,15 @@ import matplotlib.pyplot as plt
 import dccp.problem
 
 np.random.seed(3)
-m = 100
-n = 100
+m = 10
+n = 10
 A0 = np.random.randn(m,n)
 U, Sigma, V = np.linalg.svd(A0,0)
 Sigma = Sigma/Sigma[-1]
 A = np.dot(U, np.dot(np.diag(Sigma), V))
 
 # smallest singular value
-mu = Parameter(sign = "positive")
+mu = Parameter(nonneg=True)
 x = Variable(n)
 cost = norm(A*x)
 constr = [norm(x,2)==1, norm(x,1) <= mu]
@@ -25,7 +25,7 @@ x_result = []
 mu_vals = np.linspace(1,np.sqrt(n),50)
 for val in mu_vals:
     mu.value = val
-    prob.solve(method='dccp', solver = 'SCS')
+    prob.solve(method='dccp', max_iter=50)
     singular_value.append(norm(A*x).value)
     card.append(np.sum(np.abs(x.value)>=1e-2))
     x_result.append(x.value)
