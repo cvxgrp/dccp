@@ -4,6 +4,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import dccp.problem
 
+np.random.seed(0)
+
 n=100
 m=[50,56,62,68,74,80]
 k=[30,34,38,42,46,50]
@@ -28,7 +30,7 @@ for time in range(T):
             prob = Problem(Minimize(cost), [A*x_pos==y])
             result = prob.solve(method='dccp', solver = 'SCS')
 
-            if pnorm(x_pos - x0,2).value/pnorm(x0,2).value <=1e-2:
+            if x_pos.value is not None and pnorm(x_pos - x0,2).value/pnorm(x0,2).value <=1e-2:
                 indm = m.index(mm)
                 indk = k.index(kk)
                 proba[indm,indk] += 1/float(T)
@@ -44,7 +46,10 @@ for time in range(T):
                 indm = m.index(mm)
                 indk = k.index(kk)
                 proba_l1[indm,indk] += 1/float(T)
-            print "time=", time,"k=",kk, "m=",mm, "relative error = ", pnorm(x_pos - x0,2).value/pnorm(x0,2).value
+            if x_pos.value is not None:
+                print "time=", time,"k=",kk, "m=",mm, "relative error = ", pnorm(x_pos - x0,2).value/pnorm(x0,2).value
+            else:
+                print "time=", time,"k=",kk, "m=",mm, "relative error = ", 1.0
             print "time=", time,"k=",kk, "m=",mm, "relative error = ", pnorm(xl1 - x0,2).value/pnorm(x0,2).value
 print proba
 print proba_l1

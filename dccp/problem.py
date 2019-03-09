@@ -160,7 +160,7 @@ def iter_dccp(self, max_iter, tau, mu, tau_max, solver, ep, max_slack_tol, **kwa
     var_slack = []
     for constr in self.constraints:
         if not constr.is_dcp():
-            var_slack.append(cvx.Variable(constr.size))
+            var_slack.append(cvx.Variable(constr.shape))
 
     while it<=max_iter and all(var.value is not None for var in self.variables()):
         constr_new = []
@@ -230,7 +230,7 @@ def iter_dccp(self, max_iter, tau, mu, tau_max, solver, ep, max_slack_tol, **kwa
             max_slack = max([np.max(v) for v in slack_values] + [-np.inf])
             logger.info("max slack = %.5f", max_slack)
         #terminate
-        if np.abs(previous_cost - prob_new.value) <= ep and np.abs(self.objective.value - previous_org_cost) <= ep \
+        if prob_new.value is not None and np.abs(previous_cost - prob_new.value) <= ep and np.abs(self.objective.value - previous_org_cost) <= ep \
                 and (max_slack is None or max_slack <= max_slack_tol ):
             it_real = it
             it = max_iter+1
