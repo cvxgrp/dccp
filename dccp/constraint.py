@@ -55,25 +55,25 @@ def convexify_constr(constr):
     if not constr.is_dcp():
         dom = []
         # left hand concave
-        if constr.expr.args[0].curvature == 'CONCAVE':
-            left = linearize(constr.expr.args[0])
+        if constr.args[0].curvature == 'CONCAVE':
+            left = linearize(constr.args[0])
             if left is None:
                 return None
             else:
-                for con in constr.expr.args[0].domain:
+                for con in constr.args[0].domain:
                     dom.append(con)
         else:
-            left = constr.expr.args[0]
-        #right hand concave since the right-hand expression captures the minus sign
-        if constr.expr.args[1].curvature == 'CONCAVE':
-            neg_right = linearize(constr.expr.args[1])
-            if neg_right is None:
+            left = constr.args[0]
+        # right hand convex
+        if constr.args[1].curvature == 'CONVEX':
+            right = linearize(constr.args[1])
+            if right is None:
                 return None
             else:
-                for con in constr.expr.args[1].domain:
+                for con in constr.args[1].domain:
                     dom.append(con)
         else:
-            neg_right = constr.expr.args[1]
-        return left + neg_right <= 0, dom
+            right = constr.args[1]
+        return left - right <= 0, dom
     else:
         return constr

@@ -13,7 +13,7 @@ for i in range(n-1):
     for j in range(i+1, n):
         constr.append(cvx.norm(cvx.vec(c[i,:]-c[j,:]), 2) >= r[i]+r[j])
 prob = cvx.Problem(cvx.Minimize(cvx.max(cvx.max(cvx.abs(c), axis=1) + r)), constr)
-prob.solve(method = 'dccp', ep = 1e-2, max_slack = 1e-2)
+prob.solve(method = 'dccp', solver='ECOS', ep = 1e-2, max_slack = 1e-2)
 
 l = cvx.max(cvx.max(cvx.abs(c),axis=1)+r).value*2
 pi = np.pi

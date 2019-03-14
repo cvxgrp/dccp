@@ -29,7 +29,7 @@ def is_dccp(objective):
         if the objective is dccp
         the objective must be convex, concave, affine, or constant
     """
-    if objective.args[0].curvature == 'UNKNOWN':
+    if objective.expr.curvature == 'UNKNOWN':
         return False
     else:
         return True
