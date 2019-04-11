@@ -121,7 +121,7 @@ def is_dccp(problem):
         a boolean indicating if the problem is dccp
     """
     for constr in problem.constraints + problem.objective.args:
-        for arg in constr.expr.args:
+        for arg in constr.args:
             if arg.curvature == 'UNKNOWN':
                 return False
     return True
