@@ -5,6 +5,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import dccp
 
+np.random.seed(0)
+
 T = 100
 l = 6.0
 m = 1
@@ -54,10 +56,8 @@ for t in range(T):
     for i in range(n-1):
         for j in range(i+1,n):
             constr += [norm(y[i][t] - y[j][t]) >= d_min]
-#cost = sum([norm(u[i],1) for i in range(n)])
 prob = Problem(Minimize(cost), constr)
-prob.solve(method='dccp')
-print prob.status
+prob.solve(method='dccp', ep = 1e-1)
 ###################################################
 ################ without avoidence ###############
 u_c = []
@@ -88,8 +88,8 @@ prob_c.solve()
 #plot
 plt.figure(figsize=(20,5))
 plt.subplot(132)
-ax = [xx.value[0][0,0] for xx in y[0]]
-ay = [xx.value[1][0,0] for xx in y[0]]
+ax = [xx.value[0] for xx in y[0]]
+ay = [xx.value[1] for xx in y[0]]
 plt.plot(ax, ay,'b-')
 plt.quiver(x_ini[0][0], x_ini[0][1], x_ini[0][2], x_ini[0][3],
            units='xy', scale=2, zorder=3, color='black',
@@ -103,16 +103,16 @@ plt.quiver(x_end[0][0], x_end[0][1], x_end[0][2], x_end[0][3],
 plt.quiver(x_end[1][0], x_end[1][1], x_end[1][2], x_end[1][3],
            units='xy', scale=2, zorder=3, color='black',
            width=0.01, headwidth=4., headlength=5.)
-bx = [xx.value[0][0,0] for xx in y[1]]
-by = [xx.value[1][0,0] for xx in y[1]]
+bx = [xx.value[0] for xx in y[1]]
+by = [xx.value[1] for xx in y[1]]
 plt.plot(bx, by,'b--')
 plt.axis('equal')
 plt.xlim(0.5,4.5)
 plt.ylim(2,6)
 
 plt.subplot(131)
-ax = [xx.value[0][0,0] for xx in y_c[0]]
-ay = [xx.value[1][0,0] for xx in y_c[0]]
+ax = [xx.value[0] for xx in y_c[0]]
+ay = [xx.value[1] for xx in y_c[0]]
 plt.plot(ax, ay,'r')
 plt.quiver(x_ini[0][0], x_ini[0][1], x_ini[0][2], x_ini[0][3],
            units='xy', scale=2, zorder=3, color='black',
@@ -126,8 +126,8 @@ plt.quiver(x_end[0][0], x_end[0][1], x_end[0][2], x_end[0][3],
 plt.quiver(x_end[1][0], x_end[1][1], x_end[1][2], x_end[1][3],
            units='xy', scale=2, zorder=3, color='black',
            width=0.01, headwidth=4., headlength=5.)
-bx = [xx.value[0][0,0] for xx in y_c[1]]
-by = [xx.value[1][0,0] for xx in y_c[1]]
+bx = [xx.value[0] for xx in y_c[1]]
+by = [xx.value[1] for xx in y_c[1]]
 plt.plot(bx, by,'r--')
 plt.axis('equal')
 plt.xlim(0.5,4.5)

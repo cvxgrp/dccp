@@ -17,7 +17,7 @@ def linearize_para(expr):
     linear_dictionary = {}
     for var in expr.variables():
         value_para = cvx.Parameter(var.shape[0],var.shape[1])
-        if var.ndim>1: # matrix to vector
+        if var.ndim > 1: # matrix to vector
             gr = []
             for d in range(var.shape[1]):
                 g = cvx.Parameter(var.shape[0],expr.shape[0])
@@ -55,8 +55,11 @@ def linearize(expr):
             )
         grad_map = expr.grad
         for var in expr.variables():
+            if grad_map[var] is None:
+                return None
             if var.ndim > 1:
-                flattened = np.transpose(grad_map[var])*cvx.vec(var - var.value)
+                temp = cvx.reshape(cvx.vec(var - var.value), (var.shape[0] * var.shape[1], 1))
+                flattened = np.transpose(grad_map[var]) * temp
                 tangent = tangent + cvx.reshape(flattened, expr.shape)
             else:
                 tangent = tangent + np.transpose(grad_map[var])*(var - var.value)

@@ -2,10 +2,12 @@ __author__ = 'Xinyue'
 import numpy as np
 import matplotlib.pyplot as plt
 
+# please run sparse_recovery.py first and save the results
+
 n=100
 m=[50,56,62,68,74,80]
 k=[30,34,38,42,46,50]
-T = 100
+T = 1
 
 proba = np.zeros((6,6))
 proba_l1 = np.zeros((6,6))
