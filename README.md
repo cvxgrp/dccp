@@ -2,7 +2,8 @@ DCCP
 ====
 
 DCCP package provides an organized heuristic for convex-concave programming.
-It tries to solve nonconvex problems where all expressions have known curvature according to the rules of disciplined convex programming (DCP) but the objective and constraint right and left-hand sides may have any curvature (e.g., maximizing a convex expression). The full details of our approach are discussed in [the associated paper](https://stanford.edu/~boyd/papers/dccp.html). DCCP is built on top of [CVXPY](http://www.cvxpy.org/), a domain-specific language for convex optimization embedded in Python.
+It tries to solve nonconvex problems where every function in the obejctive and the right and left-hand sides of the constraints has any known curvature according to the rules of disciplined convex programming (DCP).
+For instance, DCCP can be used to maximize a convex function. The full details of our approach are discussed in [the associated paper](https://stanford.edu/~boyd/papers/dccp.html). DCCP is built on top of [CVXPY](http://www.cvxpy.org/), a domain-specific language for convex optimization embedded in Python.
 
 Installation
 ------------
@@ -17,7 +18,7 @@ A problem satisfies the rules of disciplined convex-concave programming (DCCP) i
 minimize/maximize o(x)
 subject to  l_i(x) ~ r_i(x),  i=1,...,m,
 ```
-where ``o`` (the objective), ``l_i`` (lefthand sides), and ``r_i`` (righthand sides) are expressions (functions
+where ``o`` (the objective), ``l_i`` (left-hand sides), and ``r_i`` (right-hand sides) are expressions (functions
 of the variable ``x``) with curvature known from the DCP composition rules, and ``∼`` denotes one of the
 relational operators ``=``, ``<=``, or ``>=``.
 
@@ -54,15 +55,16 @@ y = [[ 1.]
 cost value = 1.41421356224
 ```
 
-The solutions obtained by DCCP can depend on the initial point from which the CCP algorithm starts.
-By default the algorithm starts from a random initial point.
-You can specify an initial point manually by setting the ``value`` field of the problem variables.
+The solutions obtained by DCCP can depend on the initial point of the CCP algorithm.
+The algorithm starts from the values of any variables that are already specified; for any that are not specified, random values are used. 
+You can specify an initial value manually by setting the ``value`` field of the variable.
 For example, the following code runs the CCP algorithm with the specified initial values for ``x`` and ``y``:
 ```python
 x.value = numpy.array([1,2])
 y.value = numpy.array([-1,1])
 result = myprob.solve(method = 'dccp')
 ```
+An option is to use random initialization for all variables by ``prob.solve(method = ‘dccp’, random_start = TRUE)``, and by setting the parameter ``ccp_times`` you can specify the times that the CCP algorithm runs starting from random initial point each time.
 
 
 Functions and attributes
@@ -79,11 +81,11 @@ The components of the variable, the objective, and the constraints are construct
 * ``problem.solve(method = 'dccp')`` applies the CCP heuristic, and returns the value of the cost function, the maximum value of the slack variables, and the value of each variable. Additional arguments can be used to specify the parameters.
 
 Solve method parameters:
+* The ``ccp_times`` parameter specifies how many random initial points to run the algorithm from. The default is 1.
 * The ``max_iter`` parameter sets the maximum number of iterations in the CCP algorithm. The default is 100.
+* The ``solver`` parameter specifies what solver to use to solve convex subproblems.
 * The ``tau`` parameter trades off satisfying the constraints and minimizing the objective. Larger ``tau`` favors satisfying the constraints. The default is 0.005.
 * The ``mu`` parameter sets the rate at which ``tau`` increases inside the CCP algorithm. The default is 1.2.
 * The ``tau_max`` parameter upper bounds how large ``tau`` can get. The default is 1e8.
-* The ``solver`` parameter specifies what solver to use to solve convex subproblems.
-* The ``ccp_times`` parameter specifies how many random initial points to run the algorithm from. The default is 1.
 
-Any additional keyword arguments will be passed to the solver for convex subproblems. For example, ``warm_start=True`` will tell the convex solver to use a warm start.
+If the convex solver for subproblems accepts any additional keyword arguments, such as ``warm_start=True``, then you can still set them in the ``problem.solve()`` function, and they will be passed to the convex solver.
