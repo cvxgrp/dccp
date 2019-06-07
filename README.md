@@ -64,7 +64,7 @@ x.value = numpy.array([1,2])
 y.value = numpy.array([-1,1])
 result = myprob.solve(method = 'dccp')
 ```
-An option is to use random initialization for all variables by ``prob.solve(method = ‘dccp’, random_start = TRUE)``, and by setting the parameter ``ccp_times`` you can specify the times that the CCP algorithm runs starting from random initial point each time.
+An option is to use random initialization for all variables by ``prob.solve(method = ‘dccp’, random_start = TRUE)``, and by setting the parameter ``ccp_times`` you can specify the times that the CCP algorithm runs starting from random initial values for all variables each time.
 
 
 Functions and attributes
