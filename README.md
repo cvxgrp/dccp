@@ -2,8 +2,10 @@ DCCP
 ====
 
 DCCP package provides an organized heuristic for convex-concave programming.
-It tries to solve nonconvex problems where every function in the obejctive and the right and left-hand sides of the constraints has any known curvature according to the rules of disciplined convex programming (DCP).
-For instance, DCCP can be used to maximize a convex function. The full details of our approach are discussed in [the associated paper](https://stanford.edu/~boyd/papers/dccp.html). DCCP is built on top of [CVXPY](http://www.cvxpy.org/), a domain-specific language for convex optimization embedded in Python.
+It tries to solve nonconvex problems where every function in the obejctive and the constraints has any known curvature according to the rules of disciplined convex programming (DCP).
+For instance, DCCP can be used to maximize a convex function. 
+The full details of our approach are discussed in [the associated paper](https://stanford.edu/~boyd/papers/dccp.html). 
+DCCP is built on top of [CVXPY](http://www.cvxpy.org/), a domain-specific language for convex optimization embedded in Python.
 
 Installation
 ------------
@@ -22,7 +24,7 @@ where ``o`` (the objective), ``l_i`` (left-hand sides), and ``r_i`` (right-hand 
 of the variable ``x``) with curvature known from the DCP composition rules, and ``∼`` denotes one of the
 relational operators ``=``, ``<=``, or ``>=``.
 
-In a disciplined convex program, the curvatures of ``o``, ``l_i``, and ``r_i`` are restricted to ensure that the problem is convex. For example, if the objective is ``maximize o(x)`` then ``o`` must be concave according to the DCP composition rules. In a disciplined convex-concave program, by contrast, the objective and right and left-hand sides of the constraints can have any curvature, so long as all expressions satisfy the DCP composition rules.
+In a disciplined convex program, the curvatures of ``o``, ``l_i``, and ``r_i`` are restricted to ensure that the problem is convex. For example, if the objective is ``maximize o(x)``, then ``o`` must be concave according to the DCP composition rules. In a disciplined convex-concave program, by contrast, the objective and right and left-hand sides of the constraints can have any curvature, so long as all expressions satisfy the DCP composition rules.
 
 Example
 -------
@@ -77,7 +79,8 @@ variables) of a DCCP constraint, and if any expression is linearized, its domain
 
 Constructing and solving problems
 ---------------------------------
-The components of the variable, the objective, and the constraints are constructed using standard CVXPY syntax. Once the user has constructed a problem object, they can apply the following solve method:
+The components of the variable, the objective, and the constraints are constructed using standard CVXPY syntax. 
+Once the user has constructed a problem object, they can apply the following solve method:
 * ``problem.solve(method = 'dccp')`` applies the CCP heuristic, and returns the value of the cost function, the maximum value of the slack variables, and the value of each variable. Additional arguments can be used to specify the parameters.
 
 Solve method parameters:
