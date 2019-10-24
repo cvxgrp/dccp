@@ -21,7 +21,7 @@ subject to  l_i(x) ~ r_i(x),  i=1,...,m,
 ```
 where ``o`` (the objective), ``l_i`` (left-hand sides), and ``r_i`` (right-hand sides) are expressions (functions
 of the variable ``x``) with curvature known from the DCP composition rules, and ``∼`` denotes one of the
-relational operators ``=``, ``<=``, or ``>=``.
+relational operators ``==``, ``<=``, or ``>=``.
 
 In a disciplined convex program, the curvatures of ``o``, ``l_i``, and ``r_i`` are restricted to ensure that the problem is convex. For example, if the objective is ``maximize o(x)``, then ``o`` must be concave according to the DCP composition rules. In a disciplined convex-concave program, by contrast, the objective and right and left-hand sides of the constraints can have any curvature, so long as all expressions satisfy the DCP composition rules.
 
