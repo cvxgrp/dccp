@@ -40,6 +40,7 @@ def dccp(self, max_iter = 100, tau = 0.005, mu = 1.2, tau_max = 1e8,
         dccp_ini(self, random=(ccp_times>1), solver = solver, **kwargs) # initialization; random initial value is mandatory if ccp_times>1
         # iterations
         result_temp = iter_dccp(self, max_iter, tau, mu, tau_max, solver, ep, max_slack, **kwargs)
+        self._status = result_temp[-1]
         if result_temp[0] is not None:
             if (self.objective.NAME == 'minimize' and result_temp[0]<cost_value) \
             or (self.objective.NAME == 'maximize' and result_temp[0]>cost_value): # find a better cost value
@@ -250,8 +251,8 @@ def iter_dccp(self, max_iter, tau, mu, tau_max, solver, ep, max_slack_tol, **kwa
     for var in self.variables():
         var_value.append(var.value)
     if not var_slack == []:
-        return(self.objective.value, max_slack, var_value)
+        return(self.objective.value, max_slack, var_value, self._status)
     else:
-        return(self.objective.value, var_value)
+        return(self.objective.value, var_value, self._status)
 
 cvx.Problem.register_solve("dccp", dccp)
