@@ -40,14 +40,27 @@ def dccp(self, max_iter = 100, tau = 0.005, mu = 1.2, tau_max = 1e8,
         dccp_ini(self, random=(ccp_times>1), solver = solver, **kwargs) # initialization; random initial value is mandatory if ccp_times>1
         # iterations
         result_temp = iter_dccp(self, max_iter, tau, mu, tau_max, solver, ep, max_slack, **kwargs)
-        self._status = result_temp[-1]
-        if result_temp[0] is not None:
-            if (self.objective.NAME == 'minimize' and result_temp[0]<cost_value) \
-            or (self.objective.NAME == 'maximize' and result_temp[0]>cost_value): # find a better cost value
-                # first ccp; no slack; slack small enough
-                if t==0 or len(result_temp)<3 or result[1] < max_slack:
-                    result = result_temp # update the result
-                    cost_value = result_temp[0] # update the record on the best cost value
+        # first iteration
+        if (t == 0):
+            self._status = result_temp[-1]
+            result = result_temp
+            cost_value = result_temp[0]
+            first_result_record = {}
+            for var in self.variables():
+                first_result_record[var] = var.value
+        else:
+            if result_temp[-1] == 'Converged':
+                self._status = result_temp[-1]
+                if result_temp[0] is not None:
+                    if (cost_value is None) or (self.objective.NAME == 'minimize' and result_temp[0]<cost_value) \
+                    or (self.objective.NAME == 'maximize' and result_temp[0]>cost_value): # find a better cost value
+                        # no slack; slack small enough
+                        if len(result_temp) < 4 or result_temp[1] < max_slack:
+                            result = result_temp # update the result
+                            cost_value = result_temp[0] # update the record on the best cost value
+            else:
+                for var in self.variables():
+                    var.value = first_result_record[var]
     return result
 
 def dccp_ini(self, times = 1, random = 0, solver = None, **kwargs):
