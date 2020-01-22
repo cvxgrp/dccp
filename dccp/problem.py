@@ -45,9 +45,9 @@ def dccp(self, max_iter = 100, tau = 0.005, mu = 1.2, tau_max = 1e8,
             self._status = result_temp[-1]
             result = result_temp
             cost_value = result_temp[0]
-            first_result_record = {}
+            result_record = {}
             for var in self.variables():
-                first_result_record[var] = var.value
+                result_record[var] = var.value
         else:
             if result_temp[-1] == 'Converged':
                 self._status = result_temp[-1]
@@ -58,9 +58,11 @@ def dccp(self, max_iter = 100, tau = 0.005, mu = 1.2, tau_max = 1e8,
                         if len(result_temp) < 4 or result_temp[1] < max_slack:
                             result = result_temp # update the result
                             cost_value = result_temp[0] # update the record on the best cost value
+                            for var in self.variables():
+                                result_record[var] = var.value
             else:
                 for var in self.variables():
-                    var.value = first_result_record[var]
+                    var.value = result_record[var]
     return result
 
 def dccp_ini(self, times = 1, random = 0, solver = None, **kwargs):
