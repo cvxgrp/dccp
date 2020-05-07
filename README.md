@@ -10,7 +10,8 @@ DCCP is built on top of [CVXPY](http://www.cvxpy.org/), a domain-specific langua
 Installation
 ------------
 You should first install [CVXPY 1.0](http://www.cvxpy.org/), following the instructions [here](http://www.cvxpy.org/en/latest/install/index.html).
-Then to install DCCP from source, clone the repository and run ``python setup.py install`` inside.
+
+Install DCCP either by ``pip install dccp`` or by cloning the repository and run ``python setup.py install`` inside.
 
 DCCP rules
 ----------
