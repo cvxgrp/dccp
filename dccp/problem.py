@@ -10,7 +10,7 @@ from dccp.constraint import convexify_para_constr
 from dccp.constraint import convexify_constr
 
 logger = logging.getLogger('dccp')
-logger.addHandler(logging.FileHandler(filename='dccp.log', mode='w'))
+logger.addHandler(logging.FileHandler(filename='dccp.log', mode='w', delay=True))
 logger.setLevel(logging.INFO)
 logger.propagate = False
 
