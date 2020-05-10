@@ -207,7 +207,7 @@ def iter_dccp(self, max_iter, tau, mu, tau_max, solver, ep, max_slack_tol, **kwa
             if not arg.is_dcp():
                 while temp is None:
                     # damping
-                    for var in self.variables:
+                    for var in self.variables():
                         var_index = self.variables().index(var)
                         var.value = 0.8 * var.value + 0.2 * variable_pres_value[var_index]
                     temp = convexify_constr(arg)
