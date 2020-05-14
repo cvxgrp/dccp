@@ -11,7 +11,9 @@ Installation
 ------------
 You should first install [CVXPY 1.0](http://www.cvxpy.org/), following the instructions [here](http://www.cvxpy.org/en/latest/install/index.html).
 
-Install DCCP either by ``pip install dccp`` or by cloning the repository and run ``python setup.py install`` inside.
+To install the most updated DCCP, please download the repository and run ``python setup.py install`` inside.
+
+To install DCCP from pip, please run ``pip install dccp``.
 
 DCCP rules
 ----------
