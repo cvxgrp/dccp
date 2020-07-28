@@ -1,8 +1,8 @@
-__author__ = 'Xinyue'
+__author__ = "Xinyue"
 from dccp.linearize import linearize, linearize_para
 import cvxpy as cvx
 
-#from linearize import linearize_para
+# from linearize import linearize_para
 def convexify_para_obj(obj):
     """
     input:
@@ -21,6 +21,7 @@ def convexify_para_obj(obj):
     else:
         return obj.expr
 
+
 def is_dccp(objective):
     """
     input:
@@ -29,10 +30,11 @@ def is_dccp(objective):
         if the objective is dccp
         the objective must be convex, concave, affine, or constant
     """
-    if objective.expr.curvature == 'UNKNOWN':
+    if objective.expr.curvature == "UNKNOWN":
         return False
     else:
         return True
+
 
 def convexify_obj(obj):
     """
@@ -46,7 +48,7 @@ def convexify_obj(obj):
         if lin is None:
             return None
         else:
-            if obj.NAME == 'minimize':
+            if obj.NAME == "minimize":
                 result = cvx.Minimize(lin)
             else:
                 result = cvx.Maximize(lin)

@@ -1,8 +1,9 @@
-__author__ = 'Xinyue'
+__author__ = "Xinyue"
 from cvxpy import *
 import numpy as np
 import matplotlib.pyplot as plt
-#import mosek
+
+# import mosek
 import sys
 import dccp
 
@@ -11,33 +12,39 @@ def streamprinter(text):
     sys.stdout.write(text)
     sys.stdout.flush()
 
-n= 100
-T = 1
-noise_sigma = np.sqrt(n/np.linspace(1,17,8))
-error = np.zeros((len(noise_sigma),T))
-er_bit_rate = np.zeros((len(noise_sigma),T))
-error_M = np.zeros((len(noise_sigma),T))
-er_M_bit_rate = np.zeros((len(noise_sigma),T))
-dis = np.zeros((len(noise_sigma),T))
 
-x = Variable((n,1))
+n = 100
+T = 1
+noise_sigma = np.sqrt(n / np.linspace(1, 17, 8))
+error = np.zeros((len(noise_sigma), T))
+er_bit_rate = np.zeros((len(noise_sigma), T))
+error_M = np.zeros((len(noise_sigma), T))
+er_M_bit_rate = np.zeros((len(noise_sigma), T))
+dis = np.zeros((len(noise_sigma), T))
+
+x = Variable((n, 1))
 constr = [square(x) == 1]
 
 for t in range(T):
-    A = np.random.randn(n,n)
-    x0 = np.random.randint(0,2,size = (n,1))
-    x0 = x0*2-1
+    A = np.random.randn(n, n)
+    x0 = np.random.randint(0, 2, size=(n, 1))
+    x0 = x0 * 2 - 1
     for noise_ind in range(len(noise_sigma)):
-        v = np.random.randn(n,1)*noise_sigma[noise_ind]
-        y = np.dot(A,x0) + v
+        v = np.random.randn(n, 1) * noise_sigma[noise_ind]
+        y = np.dot(A, x0) + v
         # solve by dccp
-        prob = Problem(Minimize(norm(A*x-y)), constr)
-        result = prob.solve(method='dccp')
+        prob = Problem(Minimize(norm(A @ x - y)), constr)
+        result = prob.solve(method="dccp")
         solution = [x_value.value for x_value in x]
         recover = np.matrix(solution)
-        error[noise_ind,t] = np.linalg.norm(recover-x0,2)
-        er_bit_rate[noise_ind,t] = np.sum(np.abs(recover-x0)>=1)
-        print "error=", error[noise_ind,t] , "error bit rate = ", er_bit_rate[noise_ind,t]
+        error[noise_ind, t] = np.linalg.norm(recover - x0, 2)
+        er_bit_rate[noise_ind, t] = np.sum(np.abs(recover - x0) >= 1)
+        print(
+            "error=",
+            error[noise_ind, t],
+            "error bit rate = ",
+            er_bit_rate[noise_ind, t],
+        )
         ################################################################################################################
 
         # # solve by MOSEK
@@ -122,22 +129,19 @@ for t in range(T):
         # # Output a solution
         # xx = np.zeros(numvar, float)
         # task.getxx(mosek.soltype.itg,xx)
-        #error_M[noise_ind,t] = np.linalg.norm(2*xx[1:n+1]-1-np.transpose(x0),2)
-        #er_M_bit_rate[noise_ind,t] = sum(sum(np.abs(2*xx[1:n+1]-1-np.transpose(x0))>=1))
-        #print "error=", error_M[noise_ind,t] , "error bit rate = ", er_M_bit_rate[noise_ind,t]
-        #dis[noise_ind,t] = np.linalg.norm(2*xx[1:n+1]-1-solution,2)
-        #print "difference = ", dis[noise_ind,t]
+        # error_M[noise_ind,t] = np.linalg.norm(2*xx[1:n+1]-1-np.transpose(x0),2)
+        # er_M_bit_rate[noise_ind,t] = sum(sum(np.abs(2*xx[1:n+1]-1-np.transpose(x0))>=1))
+        # print "error=", error_M[noise_ind,t] , "error bit rate = ", er_M_bit_rate[noise_ind,t]
+        # dis[noise_ind,t] = np.linalg.norm(2*xx[1:n+1]-1-solution,2)
+        # print "difference = ", dis[noise_ind,t]
 
 
-
-plt.figure(figsize = (5,5))
-plt.plot(n/np.square(noise_sigma),np.sum(er_bit_rate,axis=1)/T,'b-o',label="dccp")
-#plt.plot(n/np.square(noise_sigma),np.sum(er_M_bit_rate,axis=1)/T,'g-^', label="global optimal")
-plt.xlabel('$n/\sigma^2$')
-plt.ylabel('bit error rate')
+plt.figure(figsize=(5, 5))
+plt.plot(
+    n / np.square(noise_sigma), np.sum(er_bit_rate, axis=1) / T, "b-o", label="dccp"
+)
+# plt.plot(n/np.square(noise_sigma),np.sum(er_M_bit_rate,axis=1)/T,'g-^', label="global optimal")
+plt.xlabel("$n/\sigma^2$")
+plt.ylabel("bit error rate")
 plt.legend()
 plt.show()
-
-
-
-

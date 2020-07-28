@@ -1,9 +1,10 @@
-__author__ = 'Xinyue'
+__author__ = "Xinyue"
 import numpy as np
 import cvxpy as cvx
 
+
 def linearize_para(expr):
-    '''
+    """
     input:
         expr: an expression
     return:
@@ -11,27 +12,28 @@ def linearize_para(expr):
         zero_order: zero order parameter
         linear_dictionary: {variable: [value parameter, [gradient parameter]]}
         dom: domain
-    '''
-    zero_order = cvx.Parameter(expr.shape[0],expr.shape[1]) # zero order
+    """
+    zero_order = cvx.Parameter(expr.shape)  # zero order
     linear_expr = zero_order
     linear_dictionary = {}
     for var in expr.variables():
-        value_para = cvx.Parameter(var.shape[0],var.shape[1])
-        if var.ndim > 1: # matrix to vector
+        value_para = cvx.Parameter(var.shape)
+        if var.ndim > 1:  # matrix to vector
             gr = []
             for d in range(var.shape[1]):
-                g = cvx.Parameter(var.shape[0],expr.shape[0])
+                g = cvx.Parameter((var.shape[0], expr.shape[0]))
                 # g = g.T
-                linear_expr += g.T * (var[:,d] - value_para[:,d]) # first order
+                linear_expr += g.T @ (var[:, d] - value_para[:, d])  # first order
                 gr.append(g)
             linear_dictionary[var] = [value_para, gr]
-        else: # vector to vector
-            g = cvx.Parameter(var.shape[0],expr.shape[0])
-            linear_expr += g.T * (var[:,d] - value_para[:,d]) # first order
+        else:  # vector to vector
+            g = cvx.Parameter(var.shape[0], expr.shape[0])
+            linear_expr += g.T @ (var[:, d] - value_para[:, d])  # first order
             gr.append(g)
         linear_dictionary[var] = [value_para, gr]
     dom = expr.domain
     return linear_expr, zero_order, linear_dictionary, dom
+
 
 def linearize(expr):
     """Returns the tangent approximation to the expression.
@@ -51,16 +53,20 @@ def linearize(expr):
         tangent = expr.value
         if tangent is None:
             raise ValueError(
-        "Cannot linearize non-affine expression with missing variable values."
+                "Cannot linearize non-affine expression with missing variable values."
             )
         grad_map = expr.grad
         for var in expr.variables():
             if grad_map[var] is None:
                 return None
             if var.ndim > 1:
-                temp = cvx.reshape(cvx.vec(var - var.value), (var.shape[0] * var.shape[1], 1))
-                flattened = np.transpose(grad_map[var]) * temp
+                temp = cvx.reshape(
+                    cvx.vec(var - var.value), (var.shape[0] * var.shape[1], 1)
+                )
+                flattened = np.transpose(grad_map[var]) @ temp
                 tangent = tangent + cvx.reshape(flattened, expr.shape)
+            elif var.size > 1:
+                tangent = tangent + np.transpose(grad_map[var]) @ (var - var.value)
             else:
-                tangent = tangent + np.transpose(grad_map[var])*(var - var.value)
+                tangent = tangent + grad_map[var] * (var - var.value)
         return tangent

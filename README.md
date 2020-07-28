@@ -48,15 +48,9 @@ The output of the above code is as follows.
 ```
 problem is DCP: False
 problem is DCCP: True
-iteration= 1 cost value =  1.38578967145 tau =  0.005
-iteration= 2 cost value =  1.41421356224 tau =  0.006
-iteration= 3 cost value =  1.41421356224 tau =  0.0072
-========================
-x = [[  4.84999696e-11]
- [  4.84999696e-11]]
-y = [[ 1.]
- [ 1.]]
-cost value = 1.41421356224
+x = [ 1. -0.]
+y = [-0.  1.]
+cost value = 1.4142135623730951
 ```
 
 The solutions obtained by DCCP can depend on the initial point of the CCP algorithm.

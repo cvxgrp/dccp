@@ -27,8 +27,10 @@ import dccp.problem
 import dccp
 import numpy as np
 
+
 class TestExample(BaseTest):
     """ Unit tests example. """
+
     def setUp(self):
         # Initialize things.
         self.a = cvx.Variable(1)
@@ -41,12 +43,15 @@ class TestExample(BaseTest):
         Test the example in the readme.
         self.sol - All known possible solutions to the problem in the readme.
         """
-        self.sol = [[0,0], [0,1], [1,0], [1,1]]
-        myprob = cvx.Problem(cvx.Maximize(cvx.norm(self.y-self.z,2)), [0<=self.y, self.y<=1, 0<=self.z, self.z<=1])
-        assert not myprob.is_dcp()   # false
+        self.sol = [[0, 0], [0, 1], [1, 0], [1, 1]]
+        myprob = cvx.Problem(
+            cvx.Maximize(cvx.norm(self.y - self.z, 2)),
+            [0 <= self.y, self.y <= 1, 0 <= self.z, self.z <= 1],
+        )
+        assert not myprob.is_dcp()  # false
         assert dccp.is_dccp(myprob)  # true
-        result = myprob.solve(method = 'dccp')
-        #print(self.y.value, self.z.value)
+        result = myprob.solve(method="dccp")
+        # print(self.y.value, self.z.value)
         self.assertIsAlmostIn(self.y.value, self.sol)
         self.assertIsAlmostIn(self.z.value, self.sol)
         self.assertAlmostEqual(result[0], np.sqrt(2))
@@ -55,48 +60,50 @@ class TestExample(BaseTest):
         """
         Test the linearize function.
         """
-        z = cvx.Variable((1,5))
+        z = cvx.Variable((1, 5))
         expr = cvx.square(z)
-        z.value = np.reshape(np.array([1,2,3,4,5]), (1,5))
+        z.value = np.reshape(np.array([1, 2, 3, 4, 5]), (1, 5))
         lin = linearize(expr)
-        self.assertEqual(lin.shape, (1,5))
-        self.assertItemsAlmostEqual(lin.value, [1,4,9,16,25])
+        self.assertEqual(lin.shape, (1, 5))
+        self.assertItemsAlmostEqual(lin.value, [1, 4, 9, 16, 25])
 
     def test_convexify_obj(self):
         """
         Test convexify objective
         """
         obj = cvx.Maximize(cvx.sum(cvx.square(self.x)))
-        self.x.value = [1,1]
+        self.x.value = [1, 1]
         obj_conv = convexify_obj(obj)
         prob_conv = cvx.Problem(obj_conv, [self.x <= -1])
         prob_conv.solve()
-        self.assertAlmostEqual(prob_conv.value,-6)
+        self.assertAlmostEqual(prob_conv.value, -6)
 
         obj = cvx.Minimize(cvx.sqrt(self.a))
         self.a.value = [1]
         obj_conv = convexify_obj(obj)
-        prob_conv = cvx.Problem(obj_conv,cvx.sqrt(self.a).domain)
+        prob_conv = cvx.Problem(obj_conv, cvx.sqrt(self.a).domain)
         prob_conv.solve()
-        self.assertAlmostEqual(prob_conv.value,0.5)
+        self.assertAlmostEqual(prob_conv.value, 0.5)
 
     def test_convexify_constr(self):
         """
         Test convexify constraint
         """
         constr = cvx.norm(self.x) >= 1
-        self.x.value = [1,1]
+        self.x.value = [1, 1]
         constr_conv = convexify_constr(constr)
         prob_conv = cvx.Problem(cvx.Minimize(cvx.norm(self.x)), [constr_conv[0]])
         prob_conv.solve()
-        self.assertAlmostEqual(prob_conv.value,1)
+        self.assertAlmostEqual(prob_conv.value, 1)
 
         constr = cvx.sqrt(self.a) <= 1
         self.a.value = [1]
         constr_conv = convexify_constr(constr)
-        prob_conv = cvx.Problem(cvx.Minimize(self.a), [constr_conv[0],constr_conv[1][0]])
+        prob_conv = cvx.Problem(
+            cvx.Minimize(self.a), [constr_conv[0], constr_conv[1][0]]
+        )
         prob_conv.solve()
-        self.assertAlmostEqual(self.a.value[0],0)
+        self.assertAlmostEqual(self.a.value[0], 0)
 
     def test_vector_constr(self):
         """
