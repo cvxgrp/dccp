@@ -190,7 +190,6 @@ def iter_dccp(self, max_iter, tau, mu, tau_max, solver, ep, max_slack_tol, **kwa
                 # damping
                 var_index = 0
                 for var in self.variables():
-                    #var_index = self.variables().index(var)
                     var.value = 0.8*var.value + 0.2* variable_pres_value[var_index]
                     var_index += 1
                 convexified_obj = convexify_obj(self.objective)
@@ -207,9 +206,10 @@ def iter_dccp(self, max_iter, tau, mu, tau_max, solver, ep, max_slack_tol, **kwa
             if not arg.is_dcp():
                 while temp is None:
                     # damping
-                    for var in self.variables:
-                        var_index = self.variables().index(var)
+                    var_index = 0
+                    for var in self.variables():
                         var.value = 0.8 * var.value + 0.2 * variable_pres_value[var_index]
+                        var_index += 1
                     temp = convexify_constr(arg)
                 newcon = temp[0]  # new constraint without slack variable
                 for dom in temp[1]:# domain
@@ -238,9 +238,14 @@ def iter_dccp(self, max_iter, tau, mu, tau_max, solver, ep, max_slack_tol, **kwa
             variable_pres_value.append(var.value)
         # solve
         if solver is None:
-            logger.info("iteration=%d, cost value=%.5f, tau=%.5f", it, prob_new.solve(**kwargs), tau)
+            prob_new_cost_value = prob_new.solve(**kwargs)
         else:
-            logger.info("iteration=%d, cost value=%.5f, tau=%.5f", it, prob_new.solve(solver=solver, **kwargs), tau)
+            prob_new_cost_value = prob_new.solve(solver=solver, **kwargs)
+        if prob_new_cost_value is not None:
+            logger.info("iteration=%d, cost value=%.5f, tau=%.5f, solver status=%s", it, prob_new_cost_value, tau, prob_new.status)
+        else:
+            logger.info("iteration=%d, cost value=%.5f, tau=%.5f, solver status=%s", it, np.nan, tau, prob_new.status)
+        
         max_slack = None
         # print slack
         if (prob_new._status == "optimal" or prob_new._status == "optimal_inaccurate") and not var_slack == []:
@@ -249,7 +254,7 @@ def iter_dccp(self, max_iter, tau, mu, tau_max, solver, ep, max_slack_tol, **kwa
             logger.info("max slack = %.5f", max_slack)
         #terminate
         if prob_new.value is not None and np.abs(previous_cost - prob_new.value) <= ep and np.abs(self.objective.value - previous_org_cost) <= ep \
-                and (max_slack is None or max_slack <= max_slack_tol ):
+                and (max_slack is None or max_slack <= max_slack_tol):
             it = max_iter+1
             converge = True
         else:

@@ -74,6 +74,6 @@ def convexify_constr(constr):
                     dom.append(con)
         else:
             right = constr.args[1]
-        return cvx.real(left - right) <= 0, dom
+        return left - right <= 0, dom
     else:
         return constr
