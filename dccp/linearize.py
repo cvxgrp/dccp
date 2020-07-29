@@ -50,7 +50,7 @@ def linearize(expr):
     if expr.is_affine():
         return expr
     else:
-        tangent = expr.value
+        tangent = np.real(expr.value) + np.imag(expr.value)
         if tangent is None:
             raise ValueError(
                 "Cannot linearize non-affine expression with missing variable values."
@@ -63,10 +63,13 @@ def linearize(expr):
                 temp = cvx.reshape(
                     cvx.vec(var - var.value), (var.shape[0] * var.shape[1], 1)
                 )
-                flattened = np.transpose(grad_map[var]) @ temp
+                flattened = np.transpose(np.real(grad_map[var])) @ cvx.real(temp) + \
+                np.transpose(np.imag(grad_map[var])) @ cvx.imag(temp)
                 tangent = tangent + cvx.reshape(flattened, expr.shape)
             elif var.size > 1:
-                tangent = tangent + np.transpose(grad_map[var]) @ (var - var.value)
+                tangent = tangent + np.transpose(np.real(grad_map[var])) @ (cvx.real(var) - np.real(var.value)) \
+                + np.transpose(np.imag(grad_map[var])) @ (cvx.imag(var) - np.imag(var.value))
             else:
-                tangent = tangent + grad_map[var] * (var - var.value)
+                tangent = tangent + np.real(grad_map[var]) * (cvx.real(var) - np.real(var.value)) \
+                + np.imag(grad_map[var]) * (cvx.imag(var) - np.imag(var.value))
         return tangent

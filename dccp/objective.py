@@ -49,15 +49,9 @@ def convexify_obj(obj):
             return None
         else:
             if obj.NAME == "minimize":
-                try:
-                    result = cvx.Minimize(lin)
-                except ValueError:
-                    result = cvx.Minimize(cvx.real(lin))
+                result = cvx.Minimize(lin)
             else:
-                try:
-                    result = cvx.Maximize(lin)
-                except ValueError:
-                    result = cvx.Maximize(cvx.real(lin))
+                result = cvx.Maximize(lin)
     else:
         result = obj
     return result
