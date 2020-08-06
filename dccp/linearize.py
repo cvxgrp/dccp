@@ -50,14 +50,11 @@ def linearize(expr):
     if expr.is_affine():
         return expr
     else:
-        if np.any(np.iscomplex(expr.value)):
-            tangent = np.real(expr.value) + np.imag(expr.value)
-        else:
-            tangent = expr.value
-        if tangent is None:
+        if expr.value is None:
             raise ValueError(
                 "Cannot linearize non-affine expression with missing variable values."
             )
+        tangent = np.real(expr.value) #+ np.imag(expr.value)
         grad_map = expr.grad
         for var in expr.variables():
             if grad_map[var] is None:
