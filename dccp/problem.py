@@ -99,7 +99,7 @@ def dccp_ini(self, times=1, random=0, solver=None, **kwargs):
     """
     dom_constr = self.objective.args[0].domain  # domain of the objective function
     for arg in self.constraints:
-        for l in range(2):
+        for l in range(len(arg.args)):
             for dom in arg.args[l].domain:
                 dom_constr.append(dom)  # domain on each side of constraints
     var_store = []  # store initial values for each variable
