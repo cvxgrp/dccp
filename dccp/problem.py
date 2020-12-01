@@ -102,64 +102,41 @@ def dccp_ini(self, times=1, random=0, solver=None, **kwargs):
         for l in range(len(arg.args)):
             for dom in arg.args[l].domain:
                 dom_constr.append(dom)  # domain on each side of constraints
-    var_store = []  # store initial values for each variable
-    init_flag = []  # indicate if any variable is initialized by the user
-    var_user_ini = []
+    var_store = {}  # store initial values for each variable
+    init_flag = {}  # indicate if any variable is initialized by the user
+    var_user_ini = {}
     for var in self.variables():
-        var_store.append(np.zeros(var.shape))  # to be averaged
-        init_flag.append(var.value is None)
+        var_store[var] = np.zeros(var.shape)  # to be averaged
+        init_flag[var] = var.value is None
         if var.value is None:
-            var_user_ini.append(np.zeros(var.shape))
+            var_user_ini[var] = np.zeros(var.shape)
         else:
-            var_user_ini.append(var.value)
-    # setup the problem
-    ini_cost = 0
-    var_ind = 0
-    value_para = []
-    for var in self.variables():
-        if (
-            init_flag[var_ind] or random
-        ):  # if the variable is not initialized by the user, or random initialization is mandatory
-            value_para.append(cvx.Parameter(var.shape))
-            ini_cost += cvx.pnorm(var - value_para[-1], 2)
-        var_ind += 1
-    ini_obj = cvx.Minimize(ini_cost)
-    ini_prob = cvx.Problem(ini_obj, dom_constr)
-    # solve it several times with random points
+            var_user_ini[var] = var.value
     for t in range(times):  # for each time of random projection
-        count_para = 0
-        var_ind = 0
+        # setup the problem
+        ini_cost = 0
         for var in self.variables():
-            # if the variable is not initialized by the user, or random
-            # initialization is mandatory
-            if init_flag[var_ind] or random:
-                # set a random point
+            if (init_flag[var] or random):  # if the variable is not initialized by the user, or random initialization is mandatory
                 if len(var.shape) > 1:
-                    value_para[count_para].value = (
-                        np.random.randn(var.shape[0], var.shape[1]) * 10
-                    )
+                    ini_cost += cvx.norm(var - np.random.randn(var.shape[0], var.shape[1]) * 10, "fro")
                 else:
-                    value_para[count_para].value = np.random.randn(var.size) * 10
-                count_para += 1
-            var_ind += 1
+                    ini_cost += cvx.norm(var - np.random.randn(var.size) * 10)
+        ini_obj = cvx.Minimize(ini_cost)
+        ini_prob = cvx.Problem(ini_obj, dom_constr)
+        # print("ini problem", ini_prob, "ini obj", ini_obj, "dom constr", dom_constr)
         if solver is None:
             ini_prob.solve(**kwargs)
         else:
             ini_prob.solve(solver=solver, **kwargs)
-        var_ind = 0
+        # print("end solving ini problem")
         for var in self.variables():
-            var_store[var_ind] = var_store[var_ind] + var.value / float(
-                times
-            )  # average
-            var_ind += 1
+            var_store[var] = var_store[var] + var.value / float(times)  # average
     # set initial values
-    var_ind = 0
     for var in self.variables():
-        if init_flag[var_ind] or random:
-            var.value = var_store[var_ind]
+        if init_flag[var] or random:
+            var.value = var_store[var]
         else:
-            var.value = var_user_ini[var_ind]
-        var_ind += 1
+            var.value = var_user_ini[var]
 
 
 def is_dccp(problem):
