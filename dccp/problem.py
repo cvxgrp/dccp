@@ -3,6 +3,7 @@ __author__ = "Xinyue"
 import numpy as np
 import cvxpy as cvx
 import logging
+import warnings
 
 from dccp.objective import convexify_obj
 from dccp.objective import convexify_para_obj
@@ -40,7 +41,9 @@ def dccp(
     """
     if not is_dccp(self):
         raise Exception("Problem is not DCCP.")
-
+    if is_contain_complex_numbers(self):
+        warnings.warn("Problem contains complex numbers and may not be supported by DCCP.")
+        logger.info("WARN: Problem contains complex numbers and may not be supported by DCCP.")
     result = None
     if self.objective.NAME == "minimize":
         cost_value = float("inf")  # record on the best cost value
@@ -153,6 +156,25 @@ def is_dccp(problem):
             if arg.curvature == "UNKNOWN":
                 return False
     return True
+
+def is_contain_complex_numbers(self):
+    for variable in self.variables():
+        if variable.is_complex():
+            return True
+    for para in self.parameters():
+        if para.is_complex():
+            return True
+    for constant in self.constants():
+        if constant.is_complex():
+            return True
+    for arg in self.objective.args:
+        if arg.is_complex():
+            return True
+    for constr in self.constraints:
+        for arg in constr.args:
+            if arg.is_complex():
+                return True
+    return False
 
 
 def iter_dccp(self, max_iter, tau, mu, tau_max, solver, ep, max_slack_tol, **kwargs):
