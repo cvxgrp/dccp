@@ -28,6 +28,9 @@ relational operators ``==``, ``<=``, or ``>=``.
 
 In a disciplined convex program, the curvatures of ``o``, ``l_i``, and ``r_i`` are restricted to ensure that the problem is convex. For example, if the objective is ``maximize o(x)``, then ``o`` must be concave according to the DCP composition rules. In a disciplined convex-concave program, by contrast, the objective and right and left-hand sides of the constraints can have any curvature, so long as all expressions satisfy the DCP composition rules.
 
+The variables, parameters, and constants in DCCP should be real numbers. Problems containing complex numbers may not be supported by DCCP.
+
+
 Example
 -------
 The following code uses DCCP to approximately solve a simple nonconvex problem.
