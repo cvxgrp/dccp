@@ -11,8 +11,7 @@ r = np.linspace(1, 5, n)
 c = cvx.Variable((n, 2))
 constr = []
 for i in range(n - 1):
-    for j in range(i + 1, n):
-        constr.append(cvx.norm(cvx.vec(c[i, :] - c[j, :]), 2) >= r[i] + r[j])
+    constr.append(cvx.norm(cvx.reshape(c[i, :], (1, 2)) - c[i + 1: n, :], 2, axis=1) >= r[i] + r[i + 1: n])
 prob = cvx.Problem(cvx.Minimize(cvx.max(cvx.max(cvx.abs(c), axis=1) + r)), constr)
 prob.solve(method="dccp", solver="ECOS", ep=1e-2, max_slack=1e-2)
 
