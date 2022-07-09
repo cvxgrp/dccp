@@ -2,7 +2,7 @@ DCCP
 ====
 
 DCCP package provides an organized heuristic for convex-concave programming.
-It tries to solve nonconvex problems where every function in the obejctive and the constraints has any known curvature according to the rules of disciplined convex programming (DCP).
+It tries to solve nonconvex problems where every function in the objective and the constraints has any known curvature according to the rules of disciplined convex programming (DCP).
 For instance, DCCP can be used to maximize a convex function. 
 The full details of our approach are discussed in [the associated paper](https://stanford.edu/~boyd/papers/dccp.html). 
 DCCP is built on top of [CVXPY](http://www.cvxpy.org/), a domain-specific language for convex optimization embedded in Python.
