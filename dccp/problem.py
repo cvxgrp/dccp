@@ -91,6 +91,9 @@ def dccp(
             else:
                 for var in self.variables():
                     var.value = result_record[var]
+    # set the variables' values to the ones generating the best cost value.
+    for var in self.variables():
+        var.value = result_record[var]
     return result
 
 
