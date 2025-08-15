@@ -64,3 +64,6 @@ target/
 .DS_Store
 .idea/*
 
+# uv
+uv.lock
+*.png

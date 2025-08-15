@@ -1,6 +1,6 @@
 __author__ = "Xinyue"
-import numpy as np
 import cvxpy as cvx
+import numpy as np
 
 
 def linearize_para(expr):
@@ -54,7 +54,7 @@ def linearize(expr):
             raise ValueError(
                 "Cannot linearize non-affine expression with missing variable values."
             )
-        tangent = np.real(expr.value) #+ np.imag(expr.value)
+        tangent = np.real(expr.value)  # + np.imag(expr.value)
         grad_map = expr.grad
         for var in expr.variables():
             if grad_map[var] is None:
@@ -67,21 +67,32 @@ def linearize(expr):
                     cvx.vec(var - var.value), (var.shape[0] * var.shape[1], 1)
                 )
                 if complex_flag:
-                    flattened = np.transpose(np.real(grad_map[var])) @ cvx.real(temp) + \
-                    np.transpose(np.imag(grad_map[var])) @ cvx.imag(temp)
+                    flattened = np.transpose(np.real(grad_map[var])) @ cvx.real(
+                        temp
+                    ) + np.transpose(np.imag(grad_map[var])) @ cvx.imag(temp)
                 else:
                     flattened = np.transpose(np.real(grad_map[var])) @ temp
                 tangent = tangent + cvx.reshape(flattened, expr.shape)
             elif var.size > 1:
                 if complex_flag:
-                    tangent = tangent + np.transpose(np.real(grad_map[var])) @ (cvx.real(var) - np.real(var.value)) \
-                    + np.transpose(np.imag(grad_map[var])) @ (cvx.imag(var) - np.imag(var.value))
+                    tangent = (
+                        tangent
+                        + np.transpose(np.real(grad_map[var]))
+                        @ (cvx.real(var) - np.real(var.value))
+                        + np.transpose(np.imag(grad_map[var]))
+                        @ (cvx.imag(var) - np.imag(var.value))
+                    )
                 else:
-                    tangent = tangent + np.transpose(np.real(grad_map[var])) @ (var - var.value)
+                    tangent = tangent + np.transpose(np.real(grad_map[var])) @ (
+                        var - var.value
+                    )
             else:
                 if complex_flag:
-                    tangent = tangent + np.real(grad_map[var]) * (cvx.real(var) - np.real(var.value)) \
-                    + np.imag(grad_map[var]) * (cvx.imag(var) - np.imag(var.value))
+                    tangent = (
+                        tangent
+                        + np.real(grad_map[var]) * (cvx.real(var) - np.real(var.value))
+                        + np.imag(grad_map[var]) * (cvx.imag(var) - np.imag(var.value))
+                    )
                 else:
-                    tangent = tangent + np.real(grad_map[var]) * (var - var.value) 
+                    tangent = tangent + np.real(grad_map[var]) * (var - var.value)
         return tangent

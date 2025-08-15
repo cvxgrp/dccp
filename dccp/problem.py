@@ -1,14 +1,13 @@
 __author__ = "Xinyue"
 
-import numpy as np
-import cvxpy as cvx
 import logging
 import warnings
 
-from dccp.objective import convexify_obj
-from dccp.objective import convexify_para_obj
-from dccp.constraint import convexify_para_constr
+import cvxpy as cvx
+import numpy as np
+
 from dccp.constraint import convexify_constr
+from dccp.objective import convexify_obj
 
 logger = logging.getLogger("dccp")
 logger.addHandler(logging.FileHandler(filename="dccp.log", mode="w", delay=True))
@@ -26,7 +25,7 @@ def dccp(
     ccp_times=1,
     max_slack=1e-3,
     ep=1e-5,
-    **kwargs
+    **kwargs,
 ):
     """
     main algorithm ccp
@@ -42,17 +41,21 @@ def dccp(
     if not is_dccp(self):
         raise Exception("Problem is not DCCP.")
     if is_contain_complex_numbers(self):
-        warnings.warn("Problem contains complex numbers and may not be supported by DCCP.")
-        logger.info("WARN: Problem contains complex numbers and may not be supported by DCCP.")
+        warnings.warn(
+            "Problem contains complex numbers and may not be supported by DCCP."
+        )
+        logger.info(
+            "WARN: Problem contains complex numbers and may not be supported by DCCP."
+        )
     result = None
     if self.objective.NAME == "minimize":
         cost_value = float("inf")  # record on the best cost value
     else:
         cost_value = -float("inf")
     for t in range(ccp_times):  # for each time of running ccp
-        dccp_ini(
-            self, random=(ccp_times > 1), solver=solver, **kwargs
-        )  # initialization; random initial value is mandatory if ccp_times>1
+        # initialization; random initial value is mandatory if ccp_times>1
+        dccp_ini(self, random=(ccp_times > 1), solver=solver, **kwargs)
+
         # iterations
         result_temp = iter_dccp(
             self, max_iter, tau, mu, tau_max, solver, ep, max_slack, **kwargs
@@ -82,10 +85,9 @@ def dccp(
                     ):  # find a better cost value
                         # no slack; slack small enough
                         if len(result_temp) < 4 or result_temp[1] < max_slack:
-                            result = result_temp  # update the result
-                            cost_value = result_temp[
-                                0
-                            ]  # update the record on the best cost value
+                            result = result_temp
+                            # update the record on the best cost value
+                            cost_value = result_temp[0]
                             for var in self.variables():
                                 result_record[var] = var.value
             else:
@@ -122,9 +124,13 @@ def dccp_ini(self, times=1, random=0, solver=None, **kwargs):
         # setup the problem
         ini_cost = 0
         for var in self.variables():
-            if (init_flag[var] or random):  # if the variable is not initialized by the user, or random initialization is mandatory
+            if (
+                init_flag[var] or random
+            ):  # if the variable is not initialized by the user, or random initialization is mandatory
                 if len(var.shape) > 1:
-                    ini_cost += cvx.norm(var - np.random.randn(var.shape[0], var.shape[1]) * 10, "fro")
+                    ini_cost += cvx.norm(
+                        var - np.random.randn(var.shape[0], var.shape[1]) * 10, "fro"
+                    )
                 else:
                     ini_cost += cvx.norm(var - np.random.randn(var.size) * 10)
         ini_obj = cvx.Minimize(ini_cost)
@@ -159,6 +165,7 @@ def is_dccp(problem):
             if arg.curvature == "UNKNOWN":
                 return False
     return True
+
 
 def is_contain_complex_numbers(self):
     for variable in self.variables():
@@ -225,6 +232,7 @@ def iter_dccp(self, max_iter, tau, mu, tau_max, solver, ep, max_slack_tol, **kwa
         if not self.objective.is_dcp():
             # non-sub/super-diff
             while convexified_obj is None:
+                print(f"APPLYING DAMPING: iteration {it}, tau={tau}")
                 # damping
                 var_index = 0
                 for var in self.variables():

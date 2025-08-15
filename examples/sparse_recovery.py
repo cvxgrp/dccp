@@ -1,8 +1,9 @@
 __author__ = "Xinyue"
-from cvxpy import *
-import numpy as np
 import matplotlib.pyplot as plt
-import dccp.problem
+import numpy as np
+from cvxpy import *
+
+from dccp import is_dccp
 
 np.random.seed(0)
 
@@ -28,6 +29,8 @@ for time in range(T):
             x_pos.value = np.ones((n, 1))
             cost = reshape(sum(sqrt(x_pos), axis=0), (1, 1))
             prob = Problem(Minimize(cost), [A @ x_pos == y])
+
+            print("is_dccp:", is_dccp(prob))
             result = prob.solve(method="dccp", solver="SCS")
 
             if (
@@ -91,7 +94,9 @@ plt.xlabel("cardinality")
 plt.yticks(range(0, len(m)), m)
 plt.ylabel("number of measurements")
 ax.set_title("probability of recovery")
-plt.show()
+# plt.show()
+
+plt.savefig("sparse_recovery.png", dpi=300, bbox_inches="tight")
 
 # to run sparse_recovery_plot.py later, please save the following files
 # np.save("sparse_rec/data100", proba)
