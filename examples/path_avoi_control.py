@@ -1,9 +1,9 @@
-__author__ = "Xinyue"
-__author__ = "Xinyue"
-from cvxpy import *
-import numpy as np
+"""DCCP package."""
+
+"""DCCP package."""
 import matplotlib.pyplot as plt
-import dccp
+import numpy as np
+from cvxpy import *
 
 np.random.seed(0)
 

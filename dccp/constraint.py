@@ -1,54 +1,6 @@
-__author__ = "Xinyue"
+"""DCCP package."""
 
-from dccp.linearize import linearize, linearize_para
-import cvxpy as cvx
-
-# from dccp.linearize import linearize_para
-def convexify_para_constr(self):
-    """
-    input:
-        self: a constraint of a problem
-    return:
-        if the constraint is dcp, return itself;
-        otherwise, return
-            a convexified constraint
-            para: [left side, right side]
-                if the left/right-hand side of the the constraint is linearized,
-                left/right side = [zero order parameter, {variable: [value parameter, [gradient parameter]]}]
-                else,
-                left/right side = []
-            dom: domain
-    """
-    if not self.is_dcp():
-        dom = []  # domain
-        para = []  # a list for parameters
-        if self.expr.args[0].curvature == "CONCAVE":  # left-hand concave
-            lin = linearize_para(self.expr.args[0])  # linearize the expression
-            left = lin[0]
-            para.append(
-                [lin[1], lin[2]]
-            )  # [zero order parameter, {variable: [value parameter, [gradient parameter]]}]
-            for con in lin[3]:
-                dom.append(con)
-        else:
-            left = self.expr.args[0]
-            para.append(
-                []
-            )  # appending an empty list indicates the expression has the right curvature
-        if (
-            self.expr.args[1].curvature == "CONCAVE"
-        ):  # negative right-hand must be concave (right-hand is convex)
-            lin = linearize_para(self.expr.args[1])  # linearize the expression
-            neg_right = lin[0]
-            para.append([lin[1], lin[2]])
-            for con in lin[3]:
-                dom.append(con)
-        else:
-            neg_right = self.expr.args[1]
-            para.append([])
-        return left + neg_right <= 0, para, dom
-    else:
-        return self
+from dccp.linearize import linearize
 
 
 def convexify_constr(constr):

@@ -1,9 +1,8 @@
-__author__ = "Xinyue"
-from cvxpy import *
-import dccp
-from dccp.problem import is_dccp
+"""DCCP package."""
 
-import matplotlib.pyplot as plt
+from cvxpy import *
+
+from dccp.problem import is_dccp
 
 x = Variable(2)
 y = Variable(2)

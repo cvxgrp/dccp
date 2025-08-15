@@ -1,9 +1,9 @@
-__author__ = "Xinyue"
+"""DCCP package."""
 
 import logging
 import warnings
 
-import cvxpy as cvx
+import cvxpy as cp
 import numpy as np
 
 from dccp.constraint import convexify_constr
@@ -128,13 +128,13 @@ def dccp_ini(self, times=1, random=0, solver=None, **kwargs):
                 init_flag[var] or random
             ):  # if the variable is not initialized by the user, or random initialization is mandatory
                 if len(var.shape) > 1:
-                    ini_cost += cvx.norm(
+                    ini_cost += cp.norm(
                         var - np.random.randn(var.shape[0], var.shape[1]) * 10, "fro"
                     )
                 else:
-                    ini_cost += cvx.norm(var - np.random.randn(var.size) * 10)
-        ini_obj = cvx.Minimize(ini_cost)
-        ini_prob = cvx.Problem(ini_obj, dom_constr)
+                    ini_cost += cp.norm(var - np.random.randn(var.size) * 10)
+        ini_obj = cp.Minimize(ini_cost)
+        ini_prob = cp.Problem(ini_obj, dom_constr)
         # print("ini problem", ini_prob, "ini obj", ini_obj, "dom constr", dom_constr)
         if solver is None:
             ini_prob.solve(**kwargs)
@@ -210,7 +210,7 @@ def iter_dccp(self, max_iter, tau, mu, tau_max, solver, ep, max_slack_tol, **kwa
         else:
             constr.append(constraint)
     obj = self.objective
-    self = cvx.Problem(obj, constr)
+    self = cp.Problem(obj, constr)
     it = 1
     converge = False
     # keep the values from the previous iteration or initialization
@@ -223,7 +223,7 @@ def iter_dccp(self, max_iter, tau, mu, tau_max, solver, ep, max_slack_tol, **kwa
     var_slack = []
     for constr in self.constraints:
         if not constr.is_dcp():
-            var_slack.append(cvx.Variable(constr.shape))
+            var_slack.append(cp.Variable(constr.shape))
 
     while it <= max_iter and all(var.value is not None for var in self.variables()):
         constr_new = []
@@ -271,15 +271,15 @@ def iter_dccp(self, max_iter, tau, mu, tau_max, solver, ep, max_slack_tol, **kwa
         # objective
         if self.objective.NAME == "minimize":
             for var in var_slack:
-                cost_new += tau * cvx.sum(var)
-            obj_new = cvx.Minimize(cost_new)
+                cost_new += tau * cp.sum(var)
+            obj_new = cp.Minimize(cost_new)
         else:
             for var in var_slack:
-                cost_new -= tau * cvx.sum(var)
-            obj_new = cvx.Maximize(cost_new)
+                cost_new -= tau * cp.sum(var)
+            obj_new = cp.Maximize(cost_new)
 
         # new problem
-        prob_new = cvx.Problem(obj_new, constr_new)
+        prob_new = cp.Problem(obj_new, constr_new)
         # keep previous value of variables
         variable_pres_value = []
         for var in self.variables():
@@ -342,4 +342,4 @@ def iter_dccp(self, max_iter, tau, mu, tau_max, solver, ep, max_slack_tol, **kwa
         return (self.objective.value, var_value, self._status)
 
 
-cvx.Problem.register_solve("dccp", dccp)
+cp.Problem.register_solve("dccp", dccp)

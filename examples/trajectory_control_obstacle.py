@@ -1,9 +1,11 @@
-__author__ = "Xinyue"
-from cvxpy import *
-import numpy as np
-import matplotlib.pyplot as plt
+"""DCCP package."""
+
 import matplotlib.patches as mpatches
-import dccp
+import matplotlib.pyplot as plt
+import numpy as np
+from cvxpy import *
+
+from dccp import is_dccp
 
 n = 50
 l = 10
@@ -25,6 +27,7 @@ for i in range(n):
     for j in range(m):
         constr += [norm(x[i] - p[:, j]) >= r[j]]
 prob = Problem(Minimize(cost), constr)
+print(f"problem is DCP: {is_dccp(prob)}")
 print("begin to solve")
 result = prob.solve(method="dccp")
 print("end")
@@ -40,4 +43,4 @@ plt.plot(ax1, ax2, "r-+")
 plt.ylim(0, 10)
 plt.xlim(0, 10)
 ax.grid()
-plt.show()
+fig.savefig("trajectory_control_obstacle.png")

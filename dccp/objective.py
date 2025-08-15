@@ -1,25 +1,8 @@
-__author__ = "Xinyue"
-from dccp.linearize import linearize, linearize_para
-import cvxpy as cvx
+"""Objective.py"""
 
-# from linearize import linearize_para
-def convexify_para_obj(obj):
-    """
-    input:
-        obj: an objective of a problem
-    return:
-        if the objective is dcp,
-        return the cost function (an expression);
-        if the objective has a wrong curvature,
-        return the linearized expression of the cost function,
-        the zeros order parameter,
-        the dictionary of parameters indexed by variables,
-        the domain
-    """
-    if obj.is_dcp() == False:
-        return linearize_para(obj.expr)
-    else:
-        return obj.expr
+import cvxpy as cp
+
+from dccp.linearize import linearize
 
 
 def is_dccp(objective):
@@ -49,9 +32,9 @@ def convexify_obj(obj):
             return None
         else:
             if obj.NAME == "minimize":
-                result = cvx.Minimize(lin)
+                result = cp.Minimize(lin)
             else:
-                result = cvx.Maximize(lin)
+                result = cp.Maximize(lin)
     else:
         result = obj
     return result

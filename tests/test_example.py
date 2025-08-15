@@ -16,27 +16,29 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with CVXPY.  If not, see <http://www.gnu.org/licenses/>.
 """
+
 from __future__ import division
 
-from dccp.tests.base_test import BaseTest
-import cvxpy as cvx
-from dccp.objective import convexify_obj
+import cvxpy as cp
+import numpy as np
+
+import dccp
+import dccp.problem
 from dccp.constraint import convexify_constr
 from dccp.linearize import linearize
-import dccp.problem
-import dccp
-import numpy as np
+from dccp.objective import convexify_obj
+from dccp.tests.base_test import BaseTest
 
 
 class TestExample(BaseTest):
-    """ Unit tests example. """
+    """Unit tests example."""
 
     def setUp(self):
         # Initialize things.
-        self.a = cvx.Variable(1)
-        self.x = cvx.Variable(2)
-        self.y = cvx.Variable(2)
-        self.z = cvx.Variable(2)
+        self.a = cp.Variable(1)
+        self.x = cp.Variable(2)
+        self.y = cp.Variable(2)
+        self.z = cp.Variable(2)
 
     def test_readme_example(self):
         """
@@ -44,8 +46,8 @@ class TestExample(BaseTest):
         self.sol - All known possible solutions to the problem in the readme.
         """
         self.sol = [[0, 0], [0, 1], [1, 0], [1, 1]]
-        myprob = cvx.Problem(
-            cvx.Maximize(cvx.norm(self.y - self.z, 2)),
+        myprob = cp.Problem(
+            cp.Maximize(cp.norm(self.y - self.z, 2)),
             [0 <= self.y, self.y <= 1, 0 <= self.z, self.z <= 1],
         )
         assert not myprob.is_dcp()  # false
@@ -60,8 +62,8 @@ class TestExample(BaseTest):
         """
         Test the linearize function.
         """
-        z = cvx.Variable((1, 5))
-        expr = cvx.square(z)
+        z = cp.Variable((1, 5))
+        expr = cp.square(z)
         z.value = np.reshape(np.array([1, 2, 3, 4, 5]), (1, 5))
         lin = linearize(expr)
         self.assertEqual(lin.shape, (1, 5))
@@ -71,17 +73,17 @@ class TestExample(BaseTest):
         """
         Test convexify objective
         """
-        obj = cvx.Maximize(cvx.sum(cvx.square(self.x)))
+        obj = cp.Maximize(cp.sum(cp.square(self.x)))
         self.x.value = [1, 1]
         obj_conv = convexify_obj(obj)
-        prob_conv = cvx.Problem(obj_conv, [self.x <= -1])
+        prob_conv = cp.Problem(obj_conv, [self.x <= -1])
         prob_conv.solve()
         self.assertAlmostEqual(prob_conv.value, -6)
 
-        obj = cvx.Minimize(cvx.sqrt(self.a))
+        obj = cp.Minimize(cp.sqrt(self.a))
         self.a.value = [1]
         obj_conv = convexify_obj(obj)
-        prob_conv = cvx.Problem(obj_conv, cvx.sqrt(self.a).domain)
+        prob_conv = cp.Problem(obj_conv, cp.sqrt(self.a).domain)
         prob_conv.solve()
         self.assertAlmostEqual(prob_conv.value, 0.5)
 
@@ -89,19 +91,17 @@ class TestExample(BaseTest):
         """
         Test convexify constraint
         """
-        constr = cvx.norm(self.x) >= 1
+        constr = cp.norm(self.x) >= 1
         self.x.value = [1, 1]
         constr_conv = convexify_constr(constr)
-        prob_conv = cvx.Problem(cvx.Minimize(cvx.norm(self.x)), [constr_conv[0]])
+        prob_conv = cp.Problem(cp.Minimize(cp.norm(self.x)), [constr_conv[0]])
         prob_conv.solve()
         self.assertAlmostEqual(prob_conv.value, 1)
 
-        constr = cvx.sqrt(self.a) <= 1
+        constr = cp.sqrt(self.a) <= 1
         self.a.value = [1]
         constr_conv = convexify_constr(constr)
-        prob_conv = cvx.Problem(
-            cvx.Minimize(self.a), [constr_conv[0], constr_conv[1][0]]
-        )
+        prob_conv = cp.Problem(cp.Minimize(self.a), [constr_conv[0], constr_conv[1][0]])
         prob_conv.solve()
         self.assertAlmostEqual(self.a.value[0], 0)
 
@@ -109,7 +109,7 @@ class TestExample(BaseTest):
         """
         Test DCCP with vector cosntraints.
         """
-        prob = cvx.Problem(cvx.Minimize(self.x[0]), [self.x >= 0])
+        prob = cp.Problem(cp.Minimize(self.x[0]), [self.x >= 0])
         # doesn't crash with solver params.
         result = prob.solve(method="dccp", verbose=True)
         self.assertAlmostEqual(result[0], 0)

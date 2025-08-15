@@ -1,8 +1,8 @@
-__author__ = "Xinyue"
-from cvxpy import *
-import numpy as np
+"""DCCP package."""
+
 import matplotlib.pyplot as plt
-import dccp.problem
+import numpy as np
+from cvxpy import *
 
 np.random.seed(3)
 m = 10

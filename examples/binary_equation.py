@@ -1,11 +1,12 @@
-__author__ = "Xinyue"
-from cvxpy import *
-import numpy as np
-import matplotlib.pyplot as plt
+"""DCCP package."""
 
 # import mosek
 import sys
-import dccp
+
+import matplotlib.pyplot as plt
+import numpy as np
+from cvxpy import *
+
 
 # Define a stream printer to grab output from MOSEK
 def streamprinter(text):

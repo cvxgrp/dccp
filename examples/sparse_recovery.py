@@ -1,4 +1,5 @@
-__author__ = "Xinyue"
+"""DCCP package."""
+
 import matplotlib.pyplot as plt
 import numpy as np
 from cvxpy import *
