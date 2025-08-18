@@ -1,6 +1,7 @@
 """DCCP package."""
-import numpy as np
+
 import matplotlib.pyplot as plt
+import numpy as np
 
 # please run sparse_recovery.py first and save the results
 
@@ -20,13 +21,13 @@ for t in range(T):
     data_l1 = np.load(fname_l1)
     proba_l1 += data_l1 / float(T)
 
-print proba
-print proba_l1
+# print proba
+# print proba_l1
 fig = plt.figure(figsize=[14, 5])
 ax = plt.subplot(1, 2, 2)
-plt.xticks(range(0, len(k)), k)
+plt.xticks(range(len(k)), k)
 plt.xlabel(r"cardinality of $x^\mathrm{true}$", fontsize=16)
-plt.yticks(range(0, len(m)), m)
+plt.yticks(range(len(m)), m)
 plt.ylabel(r"number of measurements $m$", fontsize=16)
 a = ax.imshow(proba, interpolation="none")
 fig.colorbar(a)
@@ -34,9 +35,9 @@ ax.set_title(r"recovery probability with $\ell_{1/2}$-norm", fontsize=18)
 ax = plt.subplot(1, 2, 1)
 b = ax.imshow(proba_l1, interpolation="none")
 fig.colorbar(b)
-plt.xticks(range(0, len(k)), k)
+plt.xticks(range(len(k)), k)
 plt.xlabel(r"cardinality of $x^\mathrm{true}$", fontsize=16)
-plt.yticks(range(0, len(m)), m)
+plt.yticks(range(len(m)), m)
 plt.ylabel(r"number of measurements $m$", fontsize=16)
 ax.set_title(r"recovery probability with $\ell_{1}$-norm", fontsize=18)
 # plt.show()

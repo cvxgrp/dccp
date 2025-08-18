@@ -27,8 +27,7 @@ def dccp(
     ep=1e-5,
     **kwargs,
 ):
-    """
-    main algorithm ccp
+    """Main algorithm ccp
     :param max_iter: maximum number of iterations in ccp
     :param tau: initial weight on slack variables
     :param mu:  increment of weight on slack variables
@@ -68,40 +67,38 @@ def dccp(
             result_record = {}
             for var in self.variables():
                 result_record[var] = var.value
+        elif result_temp[-1] == "Converged":
+            self._status = result_temp[-1]
+            if result_temp[0] is not None:
+                if (
+                    (cost_value is None)
+                    or (
+                        self.objective.NAME == "minimize"
+                        and result_temp[0] < cost_value
+                    )
+                    or (
+                        self.objective.NAME == "maximize"
+                        and result_temp[0] > cost_value
+                    )
+                ):  # find a better cost value
+                    # no slack; slack small enough
+                    if len(result_temp) < 4 or result_temp[1] < max_slack:
+                        result = result_temp
+                        # update the record on the best cost value
+                        cost_value = result_temp[0]
+                        for var in self.variables():
+                            result_record[var] = var.value
         else:
-            if result_temp[-1] == "Converged":
-                self._status = result_temp[-1]
-                if result_temp[0] is not None:
-                    if (
-                        (cost_value is None)
-                        or (
-                            self.objective.NAME == "minimize"
-                            and result_temp[0] < cost_value
-                        )
-                        or (
-                            self.objective.NAME == "maximize"
-                            and result_temp[0] > cost_value
-                        )
-                    ):  # find a better cost value
-                        # no slack; slack small enough
-                        if len(result_temp) < 4 or result_temp[1] < max_slack:
-                            result = result_temp
-                            # update the record on the best cost value
-                            cost_value = result_temp[0]
-                            for var in self.variables():
-                                result_record[var] = var.value
-            else:
-                for var in self.variables():
-                    var.value = result_record[var]
+            for var in self.variables():
+                var.value = result_record[var]
     # set the variables' values to the ones generating the best cost value.
     for var in self.variables():
         var.value = result_record[var]
-    return result
+    return result[0] if result is not None else None
 
 
 def dccp_ini(self, times=1, random=0, solver=None, **kwargs):
-    """
-    set initial values
+    """Set initial values
     :param times: number of random projections for each variable
     :param random: mandatory random initial values
     """
@@ -152,8 +149,7 @@ def dccp_ini(self, times=1, random=0, solver=None, **kwargs):
 
 
 def is_dccp(problem):
-    """
-    :param
+    """:param
         a problem
     :return
         a boolean indicating if the problem is dccp
@@ -188,8 +184,7 @@ def is_contain_complex_numbers(self):
 
 
 def iter_dccp(self, max_iter, tau, mu, tau_max, solver, ep, max_slack_tol, **kwargs):
-    """
-    ccp iterations
+    """Ccp iterations
     :param max_iter: maximum number of iterations in ccp
     :param tau: initial weight on slack variables
     :param mu:  increment of weight on slack variables
@@ -338,8 +333,7 @@ def iter_dccp(self, max_iter, tau, mu, tau_max, solver, ep, max_slack_tol, **kwa
         var_value.append(var.value)
     if not var_slack == []:
         return (self.objective.value, max_slack, var_value, self._status)
-    else:
-        return (self.objective.value, var_value, self._status)
+    return (self.objective.value, var_value, self._status)
 
 
 cp.Problem.register_solve("dccp", dccp)

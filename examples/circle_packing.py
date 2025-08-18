@@ -10,14 +10,6 @@ np.random.seed(0)
 n = 10
 r = np.linspace(1, 5, n)
 
-# c = cp.Variable((n, 2))
-# constr = [
-#     cp.norm(cp.reshape(c[i, :], (1, 2)) - c[i + 1 : n, :], 2, axis=1)
-#     >= r[i] + r[i + 1 : n]
-#     for i in range(n - 1)
-# ]
-# prob = cp.Problem(cp.Minimize(cp.max(cp.max(cp.abs(c), axis=1) + r)), constr)
-
 
 c = cp.Variable((n, 2))
 constr = []
