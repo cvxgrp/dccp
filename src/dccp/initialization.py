@@ -1,58 +1,111 @@
 """Initialization module for DCCP problems."""
 
+from typing import Any
+
 import cvxpy as cp
 import numpy as np
 
 
-def initialize(self, times=1, random=0, seed=None, solver=None, **kwargs) -> None:
-    """Set initial values.
+def initialize(  # noqa: PLR0913
+    prob: cp.Problem,
+    k_ini: int = 1,
+    seed: int | None = None,
+    solver: str | None = None,
+    std: float = 10.0,
+    mean: float = 0.0,
+    *,
+    random: bool = False,
+    **kwargs: Any,
+) -> None:
+    """Set initial values for DCCP problem variables.
 
-    :param times: number of random projections for each variable
-    :param random: mandatory random initial values
+    This function initializes variables in a DCCP problem by solving auxiliary
+    optimization problems. It can perform multiple random projections and
+    average the results to obtain better initial values.
+
+    Parameters
+    ----------
+    prob : Problem
+        The CVXPY Problem instance to initialize.
+    k_ini : int, default=1
+        Number of random projections for each variable. Higher values may
+        lead to better initialization but increase computation time.
+    random : int, default=0
+        If non-zero, forces random initial values for all variables,
+        overriding any user-provided initial values.
+    seed : int or None, default=None
+        Random seed for reproducible initialization. If None, uses
+        system entropy for random number generation.
+    solver : str or None, default=None
+        Solver to use for the initialization subproblems. If None,
+        uses CVXPY's default solver selection.
+    std : float, default=10.0
+        Standard deviation for the random initialization. This scales the
+        random values generated for the variables.
+    mean : float, default=0.0
+        Mean for the random initialization. This shifts the random values
+        generated for the variables.
+    **kwargs
+        Additional keyword arguments passed to the solver.
+
+    Returns
+    -------
+    None
+        This function modifies the problem variables in-place by setting
+        their `.value` attributes.
+
+    Notes
+    -----
+    The initialization process works by:
+    1. Collecting domain constraints from the objective and constraints
+    2. For each variable without user-provided values (or if random=True),
+       creating a least-squares problem to find values close to random points
+    3. Solving multiple initialization subproblems and averaging the results
+    4. Setting the averaged values as initial points for the variables
+
+    The random initialization uses standard normal distribution scaled by 10.
+    Variables with user-provided initial values are preserved unless random=True.
+
     """
     rng = np.random.default_rng(seed)
-    dom_constr = self.objective.args[0].domain  # domain of the objective function
-    for arg in self.constraints:
-        for l in range(len(arg.args)):
-            for dom in arg.args[l].domain:
-                dom_constr.append(dom)  # domain on each side of constraints
-    var_store = {}  # store initial values for each variable
-    init_flag = {}  # indicate if any variable is initialized by the user
-    var_user_ini = {}
-    for var in self.variables():
-        var_store[var] = np.zeros(var.shape)  # to be averaged
-        init_flag[var] = var.value is None
-        if var.value is None:
-            var_user_ini[var] = np.zeros(var.shape)
+    dom_constr = prob.objective.args[0].domain  # domain of the objective function
+
+    # add domain constraints from the problem
+    for c in prob.constraints:
+        for arg in c.args:
+            dom_constr.extend(arg.domain)
+
+    # placeholder for variables that still need a value
+    var_init: dict[cp.Variable, cp.Parameter] = {}
+
+    # if random initialization is mandatory, set all variables to zero
+    ini_cost = cp.sum(0)
+    for var in prob.variables():
+        if random or var.value is None:
+            shape = var.shape if len(var.shape) > 1 else var.size
+            var_init[var] = cp.Parameter(shape)
+            ini_cost += cp.norm(var - var_init[var] * std, "fro")
+
+    # no variables to initialize
+    if len(var_init) == 0:
+        return
+
+    # store results for each initialization k in k_ini
+    result_record: list[dict[cp.Variable, Any]] = []
+    ini_prob = cp.Problem(cp.Minimize(ini_cost), dom_constr)
+
+    # find a point for each time of random projection
+    for _ in range(k_ini):
+        for param in var_init.values():
+            param.value = rng.standard_normal(param.shape) * std + mean
+
+        # solve the initialization problem
+        ini_prob.solve(solver=solver, **kwargs)
+        result_record.append({var: var.value for var in prob.variables()})
+
+    # set the variables' values to the average of the results
+    for var in prob.variables():
+        if var in var_init:
+            var.value = np.mean([res[var] for res in result_record], axis=0)
         else:
-            var_user_ini[var] = var.value
-    for t in range(times):  # for each time of random projection
-        # setup the problem
-        ini_cost = 0
-        for var in self.variables():
-            if (
-                init_flag[var] or random
-            ):  # if the variable is not initialized by the user, or random initialization is mandatory
-                if len(var.shape) > 1:
-                    ini_cost += cp.norm(
-                        var - rng.standard_normal((var.shape[0], var.shape[1])) * 10,
-                        "fro",
-                    )
-                else:
-                    ini_cost += cp.norm(var - rng.standard_normal(var.size) * 10)
-        ini_obj = cp.Minimize(ini_cost)
-        ini_prob = cp.Problem(ini_obj, dom_constr)
-        # print("ini problem", ini_prob, "ini obj", ini_obj, "dom constr", dom_constr)
-        if solver is None:
-            ini_prob.solve(**kwargs)
-        else:
-            ini_prob.solve(solver=solver, **kwargs)
-        # print("end solving ini problem")
-        for var in self.variables():
-            var_store[var] = var_store[var] + var.value / float(times)  # average
-    # set initial values
-    for var in self.variables():
-        if init_flag[var] or random:
-            var.value = var_store[var]
-        else:
-            var.value = var_user_ini[var]
+            var.value = prob.var_dict[var.name()].value
