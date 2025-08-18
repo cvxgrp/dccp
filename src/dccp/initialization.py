@@ -94,7 +94,7 @@ def initialize(  # noqa: PLR0913
     result_record: list[dict[cp.Variable, Any]] = []
     ini_prob = cp.Problem(cp.Minimize(ini_cost), dom_constr)
 
-    # find a point for each time of random projection
+    # find a point x which minimizes ||x - x_k||_2 for each random projection x_k
     for _ in range(k_ini):
         for param in var_init.values():
             param.value = rng.standard_normal(param.shape) * std + mean
@@ -104,8 +104,5 @@ def initialize(  # noqa: PLR0913
         result_record.append({var: var.value for var in prob.variables()})
 
     # set the variables' values to the average of the results
-    for var in prob.variables():
-        if var in var_init:
-            var.value = np.mean([res[var] for res in result_record], axis=0)
-        else:
-            var.value = prob.var_dict[var.name()].value
+    for var in var_init:
+        var.value = np.mean([res[var] for res in result_record], axis=0)
