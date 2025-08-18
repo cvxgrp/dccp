@@ -76,18 +76,18 @@ def initialize(  # noqa: PLR0913
             dom_constr.extend(arg.domain)
 
     # placeholder for variables that still need a value
-    var_init: dict[cp.Variable, cp.Parameter] = {}
+    z_j: dict[cp.Variable, cp.Parameter] = {}
 
     # if random initialization is mandatory, set all variables to zero
     ini_cost = cp.sum(0)
-    for var in prob.variables():
-        if random or var.value is None:
-            shape = var.shape if len(var.shape) > 1 else var.size
-            var_init[var] = cp.Parameter(shape)
-            ini_cost += cp.norm(var - var_init[var] * std, "fro")
+    for x in prob.variables():
+        if random or x.value is None:
+            shape = x.shape if len(x.shape) > 1 else x.size
+            z_j[x] = cp.Parameter(shape)
+            ini_cost += cp.norm(x - z_j[x] * std, "fro")
 
     # no variables to initialize
-    if len(var_init) == 0:
+    if len(z_j) == 0:
         return
 
     # store results for each initialization k in k_ini
@@ -96,13 +96,13 @@ def initialize(  # noqa: PLR0913
 
     # find a point x which minimizes ||x - x_k||_2 for each random projection x_k
     for _ in range(k_ini):
-        for param in var_init.values():
-            param.value = rng.standard_normal(param.shape) * std + mean
+        for z in z_j.values():
+            z.value = rng.standard_normal(z.shape) * std + mean
 
         # solve the initialization problem
         ini_prob.solve(solver=solver, **kwargs)
         result_record.append({var: var.value for var in prob.variables()})
 
     # set the variables' values to the average of the results
-    for var in var_init:
-        var.value = np.mean([res[var] for res in result_record], axis=0)
+    for z in z_j:
+        z.value = np.mean([res[z] for res in result_record], axis=0)
