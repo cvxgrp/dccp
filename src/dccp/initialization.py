@@ -63,7 +63,7 @@ def initialize(  # noqa: PLR0913
     3. Solving multiple initialization subproblems and averaging the results
     4. Setting the averaged values as initial points for the variables
 
-    The random initialization uses standard normal distribution scaled by 10.
+    The random initialization uses standard normal distribution scaled by `std`.
     Variables with user-provided initial values are preserved unless random=True.
 
     """
@@ -94,7 +94,7 @@ def initialize(  # noqa: PLR0913
     result_record: list[dict[cp.Variable, Any]] = []
     ini_prob = cp.Problem(cp.Minimize(ini_cost), dom_constr)
 
-    # find a point x which minimizes ||x - z_j||_2 for each random projection z_j
+    # find a point x which minimizes ||x - z_j||_2 for each random point z_j
     for _ in range(k_ini):
         for z in z_j.values():
             z.value = rng.standard_normal(z.shape) * std + mean

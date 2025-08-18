@@ -86,7 +86,7 @@ class TestExample:
         x.value = [1, 1]
         obj = cp.Maximize(cp.sum(cp.square(x)))
         obj_conv = convexify_obj(obj)
-        prob_conv = cp.Problem(obj_conv, [x <= -1])
+        prob_conv = cp.Problem(obj_conv, [x <= -1])  # type: ignore
         prob_conv.solve()
         assert prob_conv.status == cp.OPTIMAL
         assert prob_conv.value is not None
@@ -141,13 +141,17 @@ class TestExample:
         """Test the circle packing example."""
         n = 10
         r = np.linspace(1, 5, n)
-
         c = cp.Variable((n, 2))
+
+        # create constraints s.t. circles don't overlap: ||c[i] - c[j]|| >= r[i] + r[j]
         constr = []
         for i in range(n - 1):
             for j in range(i + 1, n):
                 constr += [cp.norm(c[i, :] - c[j, :]) >= r[i] + r[j]]
+
+        # create the problem
         prob_cp = cp.Problem(cp.Minimize(cp.max(cp.max(cp.abs(c), axis=1) + r)), constr)
+
         assert not prob_cp.is_dcp()
         assert is_dccp(prob_cp)
         prob_cp.solve(method="dccp", solver="ECOS", ep=1e-3, max_slack=1e-3, seed=0)
