@@ -21,9 +21,6 @@ prob.solve(method="dccp")
 
 print("is_dccp:", is_dccp(prob))
 prob.solve(method="dccp", solver="ECOS", ep=1e-3, max_slack=1e-3)
-print("Optimal value:", prob.value)
-print("problem status:", prob.status)
-print("circles centers:", c.value)
 
 l = cp.max(cp.max(cp.abs(c), axis=1) + r).value * 2
 pi = np.pi
