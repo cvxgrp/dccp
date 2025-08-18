@@ -94,7 +94,7 @@ def initialize(  # noqa: PLR0913
     result_record: list[dict[cp.Variable, Any]] = []
     ini_prob = cp.Problem(cp.Minimize(ini_cost), dom_constr)
 
-    # find a point x which minimizes ||x - x_k||_2 for each random projection x_k
+    # find a point x which minimizes ||x - z_j||_2 for each random projection z_j
     for _ in range(k_ini):
         for z in z_j.values():
             z.value = rng.standard_normal(z.shape) * std + mean
