@@ -1,6 +1,7 @@
 """DCCP package."""
 
 import logging
+from typing import Any
 
 import cvxpy as cp
 import numpy as np
@@ -8,7 +9,7 @@ import numpy as np
 from .constraint import convexify_constr
 from .initialization import initialize
 from .objective import convexify_obj
-from .utils import is_dccp
+from .utils import NonDCCPError, is_dccp
 
 logger = logging.getLogger("dccp")
 logger.addHandler(logging.FileHandler(filename="dccp.log", mode="w", delay=True))
@@ -16,20 +17,22 @@ logger.setLevel(logging.INFO)
 logger.propagate = False
 
 
-def dccp(
-    self,
-    max_iter=100,
-    tau=0.005,
-    mu=1.2,
-    tau_max=1e8,
-    solver=None,
-    ccp_times=1,
-    max_slack=1e-3,
-    ep=1e-5,
-    seed=None,
-    **kwargs,
-):
-    """Main algorithm ccp
+def dccp(  # noqa: PLR0913
+    prob: cp.Problem,
+    *,
+    max_iter: int = 100,
+    tau: float = 0.005,
+    mu: float = 1.2,
+    tau_max: float = 1e8,
+    solver: str | None = None,
+    ccp_times: int = 1,
+    max_slack: float = 1e-3,
+    ep: float = 1e-5,
+    seed: int | None = None,
+    **kwargs: Any,
+) -> float:
+    """Algorithm for DCCP.
+
     :param max_iter: maximum number of iterations in ccp
     :param tau: initial weight on slack variables
     :param mu:  increment of weight on slack variables
@@ -38,43 +41,44 @@ def dccp(
     :param ccp_times: times of running ccp to solve a problem with random initial values on variables
     :return
         if the transformed problem is infeasible, return None;
+
     """
-    if not is_dccp(self):
+    if not is_dccp(prob):
         msg = "Problem is not DCCP."
-        raise Exception
+        raise NonDCCPError(msg)
 
     result = None
-    if self.objective.NAME == "minimize":
-        cost_value = float("inf")  # record on the best cost value
-    else:
-        cost_value = -float("inf")
+
+    # record on the best cost value
+    cost_value = np.inf if prob.objective.NAME == "minimize" else -np.inf
+
     for t in range(ccp_times):  # for each time of running ccp
         # initialization; random initial value is mandatory if ccp_times>1
-        initialize(self, random=(ccp_times > 1), solver=solver, seed=seed, **kwargs)
+        initialize(prob, random=(ccp_times > 1), solver=solver, seed=seed, **kwargs)
 
         # iterations
         result_temp = iter_dccp(
-            self, max_iter, tau, mu, tau_max, solver, ep, max_slack, **kwargs
+            prob, max_iter, tau, mu, tau_max, solver, ep, max_slack, **kwargs
         )
         # first iteration
         if t == 0:
-            self._status = result_temp[-1]
+            prob._status = result_temp[-1]
             result = result_temp
             cost_value = result_temp[0]
             result_record = {}
-            for var in self.variables():
+            for var in prob.variables():
                 result_record[var] = var.value
         elif result_temp[-1] == cp.OPTIMAL:
-            self._status = result_temp[-1]
+            prob._status = result_temp[-1]
             if result_temp[0] is not None:
                 if (
                     (cost_value is None)
                     or (
-                        self.objective.NAME == "minimize"
+                        prob.objective.NAME == "minimize"
                         and result_temp[0] < cost_value
                     )
                     or (
-                        self.objective.NAME == "maximize"
+                        prob.objective.NAME == "maximize"
                         and result_temp[0] > cost_value
                     )
                 ):  # find a better cost value
@@ -83,30 +87,32 @@ def dccp(
                         result = result_temp
                         # update the record on the best cost value
                         cost_value = result_temp[0]
-                        for var in self.variables():
+                        for var in prob.variables():
                             result_record[var] = var.value
         else:
-            for var in self.variables():
+            for var in prob.variables():
                 var.value = result_record[var]
     # set the variables' values to the ones generating the best cost value.
-    for var in self.variables():
+    for var in prob.variables():
         var.value = result_record[var]
     return result[0] if result is not None else None
 
 
-def iter_dccp(self, max_iter, tau, mu, tau_max, solver, ep, max_slack_tol, **kwargs):
-    """Ccp iterations
-    :param max_iter: maximum number of iterations in ccp
-    :param tau: initial weight on slack variables
-    :param mu:  increment of weight on slack variables
-    :param tau_max: maximum weight on slack variables
-    :param solver: specify the solver for the transformed problem
-    :return
-        value of the objective function, maximum value of slack variables, value of variables
-    """
+def iter_dccp(
+    prob,
+    max_iter: int,
+    tau: float,
+    mu: float,
+    tau_max: float,
+    solver: str | None,
+    ep: float,
+    max_slack_tol: float,
+    **kwargs: Any,
+):
+    """Perform a single DCCP iteration."""
     # split non-affine equality constraints
     constr = []
-    for constraint in self.constraints:
+    for constraint in prob.constraints:
         if (
             str(type(constraint)) == "<class 'cvxpy.constraints.zero.Equality'>"
             and not constraint.is_dcp()
@@ -115,51 +121,51 @@ def iter_dccp(self, max_iter, tau, mu, tau_max, solver, ep, max_slack_tol, **kwa
             constr.append(constraint.args[0] >= constraint.args[1])
         else:
             constr.append(constraint)
-    obj = self.objective
-    self = cp.Problem(obj, constr)
+    obj = prob.objective
+    prob = cp.Problem(obj, constr)
     it = 1
     converge = False
     # keep the values from the previous iteration or initialization
-    previous_cost = float("inf")
-    previous_org_cost = self.objective.value
+    previous_cost = np.inf
+    previous_org_cost = prob.objective.value
     variable_pres_value = []
-    for var in self.variables():
+    for var in prob.variables():
         variable_pres_value.append(var.value)
     # each non-dcp constraint needs a slack variable
     var_slack = []
-    for constr in self.constraints:
+    for constr in prob.constraints:
         if not constr.is_dcp():
             var_slack.append(cp.Variable(constr.shape))
 
-    while it <= max_iter and all(var.value is not None for var in self.variables()):
+    while it <= max_iter and all(var.value is not None for var in prob.variables()):
         constr_new = []
         # objective
-        convexified_obj = convexify_obj(self.objective)
-        if not self.objective.is_dcp():
+        convexified_obj = convexify_obj(prob.objective)
+        if not prob.objective.is_dcp():
             # non-sub/super-diff
             while convexified_obj is None:
                 print(f"APPLYING DAMPING: iteration {it}, tau={tau}")
                 # damping
                 var_index = 0
-                for var in self.variables():
+                for var in prob.variables():
                     var.value = 0.8 * var.value + 0.2 * variable_pres_value[var_index]
                     var_index += 1
-                convexified_obj = convexify_obj(self.objective)
+                convexified_obj = convexify_obj(prob.objective)
             # domain constraints
-            for dom in self.objective.expr.domain:
+            for dom in prob.objective.expr.domain:
                 constr_new.append(dom)
         # new cost function
         cost_new = convexified_obj.expr
 
         # constraints
         count_slack = 0
-        for arg in self.constraints:
+        for arg in prob.constraints:
             temp = convexify_constr(arg)
             if not arg.is_dcp():
                 while temp is None:
                     # damping
                     var_index = 0
-                    for var in self.variables():
+                    for var in prob.variables():
                         var.value = (
                             0.8 * var.value + 0.2 * variable_pres_value[var_index]
                         )
@@ -175,7 +181,7 @@ def iter_dccp(self, max_iter, tau, mu, tau_max, solver, ep, max_slack_tol, **kwa
                 constr_new.append(arg)
 
         # objective
-        if self.objective.NAME == "minimize":
+        if prob.objective.NAME == "minimize":
             for var in var_slack:
                 cost_new += tau * cp.sum(var)
             obj_new = cp.Minimize(cost_new)
@@ -188,7 +194,7 @@ def iter_dccp(self, max_iter, tau, mu, tau_max, solver, ep, max_slack_tol, **kwa
         prob_new = cp.Problem(obj_new, constr_new)
         # keep previous value of variables
         variable_pres_value = []
-        for var in self.variables():
+        for var in prob.variables():
             variable_pres_value.append(var.value)
         # solve
         if solver is None:
@@ -224,25 +230,25 @@ def iter_dccp(self, max_iter, tau, mu, tau_max, solver, ep, max_slack_tol, **kwa
         if (
             prob_new.value is not None
             and np.abs(previous_cost - prob_new.value) <= ep
-            and np.abs(self.objective.value - previous_org_cost) <= ep
+            and np.abs(prob.objective.value - previous_org_cost) <= ep
             and (max_slack is None or max_slack <= max_slack_tol)
         ):
             it = max_iter + 1
             converge = True
         else:
             previous_cost = prob_new.value
-            previous_org_cost = self.objective.value
+            previous_org_cost = prob.objective.value
             tau = min([tau * mu, tau_max])
             it += 1
 
     # return the result
     if converge:
-        self._status = cp.OPTIMAL
+        prob._status = cp.OPTIMAL
     else:
-        self._status = cp.INFEASIBLE
+        prob._status = cp.INFEASIBLE
     var_value = []
-    for var in self.variables():
+    for var in prob.variables():
         var_value.append(var.value)
     if not var_slack == []:
-        return (self.objective.value, max_slack, var_value, self._status)
-    return (self.objective.value, var_value, self._status)
+        return (prob.objective.value, max_slack, var_value, prob._status)
+    return (prob.objective.value, var_value, prob._status)
