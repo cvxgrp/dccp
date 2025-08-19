@@ -1,6 +1,7 @@
 """DCCP package."""
 
 import logging
+from dataclasses import dataclass
 from typing import Any
 
 import cvxpy as cp
@@ -15,6 +16,23 @@ logger = logging.getLogger("dccp")
 logger.addHandler(logging.FileHandler(filename="dccp.log", mode="w", delay=True))
 logger.setLevel(logging.INFO)
 logger.propagate = False
+
+
+@dataclass
+class DCCPResult:
+    """Dataclass to hold DCCP results."""
+
+    prob: cp.Problem
+    cost: float = np.inf
+    slack: float = np.inf
+
+    def __post_init__(self) -> None:
+        """Post-initialization."""
+
+    @property
+    def status(self) -> str:
+        """Return the status of the DCCP sub-problem."""
+        return self.prob.status
 
 
 def dccp(  # noqa: PLR0913
@@ -47,10 +65,15 @@ def dccp(  # noqa: PLR0913
         msg = "Problem is not DCCP."
         raise NonDCCPError(msg)
 
+    # negate the objective if it is a maximization problem
+    obj = prob.objective
+    if isinstance(obj, cp.Maximize):
+        obj = cp.Minimize(-obj.args[0])
+
     result = None
 
     # record on the best cost value
-    cost_value = np.inf if prob.objective.NAME == "minimize" else -np.inf
+    cost_value = np.inf
 
     for t in range(ccp_times):  # for each time of running ccp
         # initialization; random initial value is mandatory if ccp_times>1
@@ -60,6 +83,7 @@ def dccp(  # noqa: PLR0913
         result_temp = iter_dccp(
             prob, max_iter, tau, mu, tau_max, solver, ep, max_slack, **kwargs
         )
+
         # first iteration
         if t == 0:
             prob._status = result_temp[-1]
@@ -70,25 +94,21 @@ def dccp(  # noqa: PLR0913
                 result_record[var] = var.value
         elif result_temp[-1] == cp.OPTIMAL:
             prob._status = result_temp[-1]
-            if result_temp[0] is not None:
-                if (
-                    (cost_value is None)
-                    or (
-                        prob.objective.NAME == "minimize"
-                        and result_temp[0] < cost_value
-                    )
-                    or (
-                        prob.objective.NAME == "maximize"
-                        and result_temp[0] > cost_value
-                    )
-                ):  # find a better cost value
-                    # no slack; slack small enough
-                    if len(result_temp) < 4 or result_temp[1] < max_slack:
-                        result = result_temp
-                        # update the record on the best cost value
-                        cost_value = result_temp[0]
-                        for var in prob.variables():
-                            result_record[var] = var.value
+            is_better = False
+            if result_temp[0] is not None and (
+                cost_value is None or result_temp[0] < cost_value
+            ):
+                is_better = True
+            # find a better cost value
+            if is_better:
+                # no slack; slack small enough
+                slack_small_enough = len(result_temp) < 4 or result_temp[1] < max_slack
+                if slack_small_enough:
+                    result = result_temp
+                    # update the record on the best cost value
+                    cost_value = result_temp[0]
+                    for var in prob.variables():
+                        result_record[var] = var.value
         else:
             for var in prob.variables():
                 var.value = result_record[var]
