@@ -1,7 +1,6 @@
 """DCCP package."""
 
 import logging
-from dataclasses import dataclass
 from typing import Any
 
 import cvxpy as cp
@@ -16,23 +15,6 @@ logger = logging.getLogger("dccp")
 logger.addHandler(logging.FileHandler(filename="dccp.log", mode="w", delay=True))
 logger.setLevel(logging.INFO)
 logger.propagate = False
-
-
-@dataclass
-class DCCPResult:
-    """Dataclass to hold DCCP results."""
-
-    prob: cp.Problem
-    cost: float = np.inf
-    slack: float = np.inf
-
-    def __post_init__(self) -> None:
-        """Post-initialization."""
-
-    @property
-    def status(self) -> str:
-        """Return the status of the DCCP sub-problem."""
-        return self.prob.status
 
 
 def dccp(  # noqa: PLR0913

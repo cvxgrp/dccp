@@ -27,6 +27,7 @@ class DCCPSettings:
     max_slack: float = 1e-3
     ep: float = 1e-5
     std: float = 10.0
+    seed: int | None = None
 
 
 class NonDCCPError(Exception):

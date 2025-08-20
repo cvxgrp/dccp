@@ -1,10 +1,11 @@
 """Unit tests for DCCP example problems."""
 
 import cvxpy as cp
+import numpy as np
 
 from dccp import convexify_constr
 
-from .utils import assert_almost_equal
+from .utils import assert_almost_equal, assert_almost_in
 
 
 class TestExample:
@@ -37,10 +38,10 @@ class TestExample:
     def test_vector_constr(self) -> None:
         """Test DCCP with vector constraints."""
         x = cp.Variable(2)
-        prob = cp.Problem(cp.Minimize(x[0]), [x >= 0])
+        prob = cp.Problem(cp.Minimize(-cp.sum_squares(x)), [x <= 2, -x <= 2])
         result = prob.solve(method="dccp", verbose=True)
         assert prob.status == cp.OPTIMAL
         assert result is not None
         assert x.value is not None
-        assert_almost_equal(float(result), 0)  # type: ignore
-        assert_almost_equal(x.value[0], 0)  # type: ignore
+        assert_almost_equal(float(result), -4)  # type: ignore
+        assert_almost_in(x.value, [np.array([a, b]) for a in [-2, 2] for b in [-2, 2]])

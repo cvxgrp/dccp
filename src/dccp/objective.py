@@ -5,36 +5,39 @@ import cvxpy as cp
 from dccp.linearize import linearize
 
 
-def is_dccp(objective):
-    """
-    input:
-        objective: an objective of a problem
-    return:
-        if the objective is dccp
-        the objective must be convex, concave, affine, or constant
-    """
-    if objective.expr.curvature == "UNKNOWN":
-        return False
-    else:
-        return True
+def is_dccp(objective: cp.Minimize | cp.Maximize) -> bool:
+    """Check if the objective is DCCP compliant."""
+    return objective.expr.curvature != "UNKNOWN"
 
 
-def convexify_obj(obj):
+def convexify_obj(obj: cp.Minimize | cp.Maximize) -> cp.Minimize:
+    """Convexify an objective function for DCCP problems.
+
+    Linearize non-DCP objectives. If the objective is already DCP, returns it unchanged.
+
+    Parameters
+    ----------
+    obj : cp.Minimize | cp.Maximize
+        Objective of a problem to be convexified.
+
+    Returns
+    -------
+    cp.Minimize or None
+        Convexified objective if linearization is possible, None otherwise.
+
     """
-    :param obj: objective of a problem
-    :return: convexified onjective or None
-    """
-    # not dcp
-    if obj.is_dcp() == False:
-        lin = linearize(obj.expr)
-        # non-sub/super-diff
-        if lin is None:
-            return None
-        else:
-            if obj.NAME == "minimize":
-                result = cp.Minimize(lin)
-            else:
-                result = cp.Maximize(lin)
-    else:
-        result = obj
-    return result
+    # negate the objective if it is a maximization problem
+    expr = obj.expr
+    if isinstance(obj, cp.Maximize):
+        expr = -expr
+    if obj.is_dcp():
+        return cp.Minimize(expr)
+
+    if not is_dccp(obj):
+        msg = (
+            "The objective is not DCCP compliant. Please ensure the objective is "
+            "constructed from DCP atoms so its curvature can be inferred."
+        )
+        raise ValueError(msg)
+
+    return cp.Minimize(linearize(obj.expr))

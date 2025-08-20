@@ -15,7 +15,6 @@ def initialize(  # noqa: PLR0913
     mean: float = 0.0,
     *,
     random: bool = False,
-    **kwargs: Any,
 ) -> None:
     """Set initial values for DCCP problem variables.
 
@@ -45,8 +44,6 @@ def initialize(  # noqa: PLR0913
     mean : float, default=0.0
         Mean for the random initialization. This shifts the random values
         generated for the variables.
-    **kwargs
-        Additional keyword arguments passed to the solver.
 
     Returns
     -------
@@ -100,7 +97,7 @@ def initialize(  # noqa: PLR0913
             z.value = rng.standard_normal(z.shape) * std + mean
 
         # solve the initialization problem
-        ini_prob.solve(solver=solver, **kwargs)
+        ini_prob.solve(solver=solver, verbose=False)
         result_record.append({var: var.value for var in prob.variables()})
 
     # set the variables' values to the average of the results
