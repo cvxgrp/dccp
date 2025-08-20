@@ -18,6 +18,7 @@ class DCCPSettings:
     """Settings for the DCCP algorithm."""
 
     max_iter: int = 100
+    max_iter_damp: int = 10
     tau_ini: float = 0.005
     mu: float = 1.2
     tau_max: float = 1e8

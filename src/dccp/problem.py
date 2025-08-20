@@ -83,6 +83,7 @@ class DCCP:
             raise NonDCCPError(msg)
 
         # store the problem
+        self.is_maximization = isinstance(prob.objective, cp.Maximize)
         self.prob_in = prob
 
         # DCCP settings
@@ -102,28 +103,32 @@ class DCCP:
             init_kwargs["seed"] = self.conf.seed
 
         initialize(prob, **init_kwargs)
-        print(
-            f"Variable initialization complete: \n{[[var.name(), var.value] for var in prob.variables()]}"
-        )
         self.iter = DCCPIter(
             prob=prob,  # Use the original problem initially
             tau=self.tau,
         )
 
+        self._prev_var_values = {}
+        self._store_previous_values()
+
     def _apply_damping(self) -> None:
         """Apply damping to variable values using previous iteration values."""
-        logger.debug("Damping: iteration %d, tau=%s", self.iter.k, self.tau.value)
-        # print("Applying damping to variable values...")
         for var in self.prob_in.variables():
             if var.value is not None and var in self._prev_var_values:
                 prev_val = self._prev_var_values[var]
-                var.value = 0.8 * var.value + 0.2 * prev_val
+                cur_val = var.value.copy()
+                damped_step = 0.8 * cur_val + 0.2 * prev_val
+                var.value = damped_step
+                logger.debug(
+                    "Suggested value for %s: %s, previous value: %s, damped value: %s",
+                    var.name(),
+                    cur_val,
+                    prev_val,
+                    damped_step,
+                )
 
     def _store_previous_values(self) -> None:
         """Store current variable values for damping."""
-        if not hasattr(self, "_prev_var_values"):
-            self._prev_var_values = {}
-
         for var in self.prob_in.variables():
             if var.value is not None:
                 val = var.value
@@ -132,9 +137,6 @@ class DCCP:
     def _construct_subproblem(self) -> None:
         """Construct the DCCP sub-problem."""
         prob = self.prob_in
-
-        # Store previous variable values for damping
-        self._store_previous_values()
 
         # split non-affine equality constraints
         constr: list[cp.Constraint] = []
@@ -151,9 +153,17 @@ class DCCP:
         # convexify objective with damping if needed
         obj = convexify_obj(prob.objective)
         if not prob.objective.is_dcp():
-            while obj is None:
+            k_damp = 0
+            while obj is None and k_damp < self.conf.max_iter_damp:
                 self._apply_damping()
                 obj = convexify_obj(prob.objective)
+                k_damp += 1
+            if obj is None:
+                msg = (
+                    "Damping did not yield a convexified objective after "
+                    f"{self.conf.max_iter_damp} iterations."
+                )
+                raise NonDCCPError(msg)
 
         # add objective domain constraints into problem constraints
         constr.extend(list(prob.objective.expr.domain))
@@ -172,7 +182,6 @@ class DCCP:
             # convexify the constraint with damping if needed
             c_conv = convexify_constr(c)
             while c_conv is None:
-                logger.debug("Applying damping: iteration %d", self.iter.k)
                 self._apply_damping()
                 c_conv = convexify_constr(c)
 
@@ -180,12 +189,15 @@ class DCCP:
             new_constr.append(c_conv.constr.expr <= v_slack)
 
         # build new problem
-        cost = obj.expr + self.tau * cp.sum(var_slack) if var_slack else obj.expr
+        cost = obj.expr + self.tau * cp.sum(var_slack) if var_slack else obj.expr  # type: ignore[reportOptionalMemberAccess]
         new_prob = cp.Problem(cp.Minimize(cost), new_constr)
 
         # Update the existing iter object instead of creating a new one
         self.iter.prob = new_prob
         self.iter.vars_slack = var_slack
+
+        # store previous variable values for damping
+        self._store_previous_values()
 
     def _solve(self) -> float:
         """Solve the DCCP problem."""
@@ -195,7 +207,6 @@ class DCCP:
 
         # run DCCP iterations until convergence or max iterations
         while not (converged or self.iter.k > self.conf.max_iter):
-            logger.debug("Iteration %d, tau=%s", self.iter.k, self.iter.tau.value)
             self._construct_subproblem()
             new_cost = self.iter.solve(**self.solve_args)
             new_cost_ns = self.iter.cost_ns
@@ -229,26 +240,20 @@ class DCCP:
                 self.iter.tau.value,
             )
 
-        self.prob_in._status = cp.INFEASIBLE  # noqa: SLF001
-
         # write the solution back to the original problem
+        self.prob_in._status = cp.INFEASIBLE  # noqa: SLF001
         if converged:
             self.prob_in._status = cp.OPTIMAL  # noqa: SLF001
             for var in self.prob_in.variables():
                 var.value = self.iter.prob.var_dict[var.name()].value
+            return self.iter.cost
 
-        # return the original objective value for the original problem
-        if converged:
-            obj_value = self.prob_in.objective.value
-            if obj_value is not None and isinstance(
-                obj_value, (int, float, np.floating)
-            ):
-                return float(obj_value)
+        # return the objective value
         return self.iter.cost if converged else np.inf
 
     def __call__(self) -> float:
         """Solve a problem using the Disciplined Convex-Concave Procedure."""
-        return self._solve()
+        return self._solve() * (-1 if self.is_maximization else 1)
 
 
 def dccp(  # noqa: PLR0913

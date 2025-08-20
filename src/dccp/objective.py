@@ -1,8 +1,12 @@
 """Convexify an objective function for DCCP problems."""
 
+import logging
+
 import cvxpy as cp
 
 from dccp.linearize import linearize
+
+logger = logging.getLogger("dccp")
 
 
 def is_dccp(objective: cp.Minimize | cp.Maximize) -> bool:
@@ -10,7 +14,7 @@ def is_dccp(objective: cp.Minimize | cp.Maximize) -> bool:
     return objective.expr.curvature != "UNKNOWN"
 
 
-def convexify_obj(obj: cp.Minimize | cp.Maximize) -> cp.Minimize:
+def convexify_obj(obj: cp.Minimize | cp.Maximize) -> cp.Minimize | None:
     """Convexify an objective function for DCCP problems.
 
     Linearize non-DCP objectives. If the objective is already DCP, returns it unchanged.
@@ -41,5 +45,7 @@ def convexify_obj(obj: cp.Minimize | cp.Maximize) -> cp.Minimize:
             "constructed from DCP atoms so its curvature can be inferred."
         )
         raise ValueError(msg)
-
-    return cp.Minimize(linearize(expr))
+    lin = linearize(expr)
+    if lin is not None:
+        return cp.Minimize(lin)
+    return None
