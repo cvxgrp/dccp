@@ -107,9 +107,32 @@ class DCCP:
             tau=self.tau,
         )
 
+    def _apply_damping(self) -> None:
+        """Apply damping to variable values using previous iteration values."""
+        logger.debug(
+            "APPLYING DAMPING: iteration %d, tau=%s", self.iter.k, self.tau.value
+        )
+        for var in self.prob_in.variables():
+            if var.value is not None and var in self._prev_var_values:
+                prev_val = self._prev_var_values[var]
+                var.value = 0.8 * var.value + 0.2 * prev_val
+
+    def _store_previous_values(self) -> None:
+        """Store current variable values for damping."""
+        if not hasattr(self, "_prev_var_values"):
+            self._prev_var_values = {}
+
+        for var in self.prob_in.variables():
+            if var.value is not None:
+                val = var.value
+                self._prev_var_values[var] = val.copy() if hasattr(val, "copy") else val
+
     def _construct_subproblem(self) -> None:
         """Construct the DCCP sub-problem."""
         prob = self.prob_in
+
+        # Store previous variable values for damping
+        self._store_previous_values()
 
         # split non-affine equality constraints
         constr: list[cp.Constraint] = []
@@ -123,8 +146,14 @@ class DCCP:
         # each non-dcp constraint needs a slack variable
         var_slack: list[cp.Variable] = []
 
-        # add objective domain constraints into problem constraints
+        # convexify objective with damping if needed
         obj = convexify_obj(prob.objective)
+        if not prob.objective.is_dcp():
+            while obj is None:
+                self._apply_damping()
+                obj = convexify_obj(prob.objective)
+
+        # add objective domain constraints into problem constraints
         constr.extend(list(prob.objective.expr.domain))
 
         # build new linearized, convexified constraints
@@ -138,8 +167,13 @@ class DCCP:
             v_slack = cp.Variable(c.shape, name=f"slack_{c.id}", nonneg=True)
             var_slack.append(v_slack)
 
-            # convexify the constraint
+            # convexify the constraint with damping if needed
             c_conv = convexify_constr(c)
+            while c_conv is None:
+                logger.debug("Applying damping: iteration %d", self.iter.k)
+                self._apply_damping()
+                c_conv = convexify_constr(c)
+
             new_constr.extend(list(c_conv.domain))
             new_constr.append(c_conv.constr.expr <= v_slack)
 

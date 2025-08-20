@@ -20,7 +20,7 @@ class TestObjective:
         prob_conv.solve()
         assert prob_conv.status == cp.OPTIMAL
         assert prob_conv.value is not None
-        assert_almost_equal(float(prob_conv.value), -6)  # type: ignore
+        assert_almost_equal(float(prob_conv.value), 6)  # type: ignore
 
     def test_convexify_sqrt(self) -> None:
         """Test convexify objective."""

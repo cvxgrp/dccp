@@ -40,4 +40,4 @@ def convexify_obj(obj: cp.Minimize | cp.Maximize) -> cp.Minimize:
         )
         raise ValueError(msg)
 
-    return cp.Minimize(linearize(obj.expr))
+    return cp.Minimize(linearize(expr))

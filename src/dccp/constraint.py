@@ -5,7 +5,6 @@ from dataclasses import dataclass
 import cvxpy as cp
 
 from dccp.linearize import linearize
-from dccp.utils import NonDCCPError
 
 
 @dataclass
@@ -16,7 +15,7 @@ class ConvexConstraint:
     domain: list[cp.Constraint]
 
 
-def convexify_constr(constr: cp.Constraint) -> ConvexConstraint:
+def convexify_constr(constr: cp.Constraint) -> ConvexConstraint | None:
     """Convexify a constraint.
 
     for a dcp constraint, return itself;
@@ -32,8 +31,7 @@ def convexify_constr(constr: cp.Constraint) -> ConvexConstraint:
     if constr.args[0].curvature == "CONCAVE":
         left = linearize(constr.args[0])
         if left is None:
-            msg = "Left hand side of the constraint is not concave."
-            raise NonDCCPError(msg)
+            return None
         dom.extend(list(constr.args[0].domain))
     else:
         left = constr.args[0]
@@ -42,8 +40,7 @@ def convexify_constr(constr: cp.Constraint) -> ConvexConstraint:
     if constr.args[1].curvature == "CONVEX":
         right = linearize(constr.args[1])
         if right is None:
-            msg = "Right hand side of the constraint is not convex."
-            raise NonDCCPError(msg)
+            return None
         dom.extend(list(constr.args[1].domain))
     else:
         right = constr.args[1]
