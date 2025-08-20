@@ -1,4 +1,4 @@
-"""Objective.py"""
+"""Convexify an objective function for DCCP problems."""
 
 import cvxpy as cp
 

@@ -35,12 +35,14 @@ class DCCPIter:
     @property
     def slack(self) -> float:
         """Get the maximum slack variable value."""
+        if not self.vars_slack:
+            return 0.0
         slack_values = []
         for s in self.vars_slack:
-            val = self.prob.var_dict[s.name()].value
+            val = s.value
             if val is not None:
                 slack_values.append(np.max(val))
-        return max(slack_values, default=-np.inf)
+        return max(slack_values, default=0.0)
 
     @property
     def cost_ns(self) -> float:
@@ -51,7 +53,7 @@ class DCCPIter:
 
     def solve(self, **kwargs: Any) -> float | None:
         """Solve the DCCP sub-problem."""
-        print(f"got kwargs={kwargs}")
+        logger.debug("Solving iteration %d with kwargs=%s", self.k, kwargs)
         self.k += 1
         result = self.prob.solve(**kwargs)
         if isinstance(result, (int, float, np.floating)):
@@ -96,14 +98,18 @@ class DCCP:
             init_kwargs["random"] = True
         if self.conf.solver is not None:
             init_kwargs["solver"] = self.conf.solver
+        if self.conf.seed is not None:
+            init_kwargs["seed"] = self.conf.seed
 
         initialize(prob, **init_kwargs)
-        self.iter = DCCPIter(prob)
-        self._construct_subproblem()
+        self.iter = DCCPIter(
+            prob=prob,  # Use the original problem initially
+            tau=self.tau,
+        )
 
     def _construct_subproblem(self) -> None:
         """Construct the DCCP sub-problem."""
-        prob = self.iter.prob
+        prob = self.prob_in
 
         # split non-affine equality constraints
         constr: list[cp.Constraint] = []
@@ -111,6 +117,8 @@ class DCCP:
             if isinstance(constraint, Equality) and not constraint.is_dcp():
                 constr.append(constraint.args[0] <= constraint.args[1])
                 constr.append(constraint.args[0] >= constraint.args[1])
+            else:
+                constr.append(constraint)
 
         # each non-dcp constraint needs a slack variable
         var_slack: list[cp.Variable] = []
@@ -127,28 +135,31 @@ class DCCP:
                 continue
 
             # add slack variable for non-convex constraint
-            var_slack.append(cp.Variable(c.shape, name=f"slack_{c.id}", nonneg=True))
+            v_slack = cp.Variable(c.shape, name=f"slack_{c.id}", nonneg=True)
+            var_slack.append(v_slack)
 
             # convexify the constraint
             c_conv = convexify_constr(c)
             new_constr.extend(list(c_conv.domain))
-            new_constr.append(c_conv.constr.expr <= var_slack)
+            new_constr.append(c_conv.constr.expr <= v_slack)
 
         # build new problem
-        cost = cp.sum(obj.expr) + self.tau * cp.sum(var_slack)
-        self.iter = DCCPIter(
-            cp.Problem(cp.Minimize(cost), new_constr),
-            vars_slack=var_slack,
-            tau=self.tau,
-        )
+        cost = obj.expr + self.tau * cp.sum(var_slack) if var_slack else obj.expr
+        new_prob = cp.Problem(cp.Minimize(cost), new_constr)
+
+        # Update the existing iter object instead of creating a new one
+        self.iter.prob = new_prob
+        self.iter.vars_slack = var_slack
 
     def _solve(self) -> float:
         """Solve the DCCP problem."""
         converged = False
         prev_cost = np.inf
         prev_cost_ns = np.inf
+
+        # run DCCP iterations until convergence or max iterations
         while not (converged or self.iter.k > self.conf.max_iter):
-            print(f"Iteration {self.iter.k}, tau={self.iter.tau.value}")
+            logger.debug("Iteration %d, tau=%s", self.iter.k, self.iter.tau.value)
             self._construct_subproblem()
             new_cost = self.iter.solve(**self.solve_args)
             new_cost_ns = self.iter.cost_ns
@@ -159,7 +170,7 @@ class DCCP:
                 new_cost is not None
                 and np.abs(prev_cost - new_cost) <= self.conf.ep
                 and np.abs(prev_cost_ns - new_cost_ns) <= self.conf.ep
-                and (slack is None or slack <= self.conf.max_slack)
+                and slack <= self.conf.max_slack
             ):
                 converged = True
 
@@ -190,6 +201,13 @@ class DCCP:
             for var in self.prob_in.variables():
                 var.value = self.iter.prob.var_dict[var.name()].value
 
+        # Return the original objective value for the original problem
+        if converged:
+            obj_value = self.prob_in.objective.value
+            if obj_value is not None and isinstance(
+                obj_value, (int, float, np.floating)
+            ):
+                return float(obj_value)
         return self.iter.cost if converged else np.inf
 
     def __call__(self) -> float:
@@ -212,7 +230,7 @@ def dccp(  # noqa: PLR0913
     **kwargs: Any,
 ) -> float:
     """Run the DCCP algorithm on the given problem."""
-    print(f"got solver={solver}, kwargs={kwargs}")
+    logger.debug("Running DCCP with solver=%s, kwargs=%s", solver, kwargs)
     dccp_solver = DCCP(
         prob,
         settings=DCCPSettings(

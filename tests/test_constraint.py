@@ -43,5 +43,5 @@ class TestExample:
         assert prob.status == cp.OPTIMAL
         assert result is not None
         assert x.value is not None
-        assert_almost_equal(float(result), -4)  # type: ignore
+        assert_almost_equal(float(result), -8)  # type: ignore
         assert_almost_in(x.value, [np.array([a, b]) for a in [-2, 2] for b in [-2, 2]])
