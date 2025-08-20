@@ -62,11 +62,11 @@ class TestExamples:
         ratio = np.pi * cp.sum(cp.square(r)).value / cp.square(le).value  # type: ignore
         assert ratio > 0.68  # the ratio should be greater than 0.68 for a valid packing
 
-    def test_damping(self) -> None:
-        """Test example where damping would occur."""
+    def test_log(self) -> None:
+        """Test example with logarithm."""
         x = cp.Variable(1)
         constr: list[Constraint] = [cp.log(x) <= 1, x >= 1]
-        prob = cp.Problem(cp.Minimize(x), constr)
+        prob = cp.Problem(cp.Minimize(cp.log(x)), constr)
         result = prob.solve(
             method="dccp", solver="ECOS", ep=1e-3, max_slack=1e-3, seed=0
         )
