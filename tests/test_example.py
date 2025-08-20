@@ -75,3 +75,19 @@ class TestExamples:
         assert_almost_equal(result, 0)  # type: ignore
         assert x.value is not None
         assert_almost_equal(float(x.value[0]), 1)  # type: ignore
+
+    def test_damping(self) -> None:
+        """Test DCCP algorithm works with settings that will trigger damping."""
+        x = cp.Variable(1, name="x")
+        obj = cp.Minimize(cp.sqrt(x))
+        constr: list[cp.Constraint] = [x >= -1]
+        prob = cp.Problem(obj, constr)
+        result = prob.solve(
+            method="dccp",
+            seed=0,
+        )
+        assert prob.status == cp.OPTIMAL
+        assert result is not None
+        assert_almost_equal(float(result), 0)  # type: ignore
+        assert x.value is not None
+        assert_almost_equal(float(x.value[0]), 0)  # type: ignore
