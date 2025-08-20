@@ -14,6 +14,8 @@ def convexify_obj(obj: cp.Minimize | cp.Maximize) -> cp.Minimize:
     """Convexify an objective function for DCCP problems.
 
     Linearize non-DCP objectives. If the objective is already DCP, returns it unchanged.
+    If the objective is a maximization problem, it is negated to convert it into a
+    minimization problem.
 
     Parameters
     ----------

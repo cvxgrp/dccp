@@ -117,6 +117,7 @@ testpaths = "tests"
 markers = ["integration: marks as integration test"]
 filterwarnings = [
     "ignore:Reading from a sparse CVXPY expression via `.value` is discouraged. Use `.value_sparse` instead:RuntimeWarning",
+    "ignore:invalid value encountered in power:RuntimeWarning",
 ]
 
 [tool.ruff]

@@ -2,10 +2,8 @@
 
 import cvxpy as cp
 import numpy as np
-import pytest
 
 from dccp import convexify_constr
-from dccp.utils import NonDCCPError
 
 from .utils import assert_almost_equal, assert_almost_in
 
@@ -58,10 +56,18 @@ class TestExample:
         assert constr_conv.constr is not None
         assert constr_conv.constr == constr
 
-    def test_convexify_non_dccp_constr(self) -> None:
+    def test_convexify_non_dccp_constr_sqrt(self) -> None:
         """Test convexify constraint with a non-DCCP constraint."""
         x = cp.Variable(1)
         constr = cp.sqrt(x) <= 1
         x.value = [-1]
-        with pytest.raises(NonDCCPError):
-            convexify_constr(constr)
+        out = convexify_constr(constr)
+        assert out is None, "Expected None for non-DCCP constraint"
+
+    def test_convexify_non_dccp_constr_log(self) -> None:
+        """Test convexify constraint with a non-DCCP constraint."""
+        x = cp.Variable(1)
+        constr = cp.log(x) <= 1
+        x.value = [-1]
+        out = convexify_constr(constr)
+        assert out is None, "Expected None for non-DCCP constraint"

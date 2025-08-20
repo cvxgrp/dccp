@@ -102,6 +102,9 @@ class DCCP:
             init_kwargs["seed"] = self.conf.seed
 
         initialize(prob, **init_kwargs)
+        print(
+            f"Variable initialization complete: \n{[[var.name(), var.value] for var in prob.variables()]}"
+        )
         self.iter = DCCPIter(
             prob=prob,  # Use the original problem initially
             tau=self.tau,
@@ -109,9 +112,8 @@ class DCCP:
 
     def _apply_damping(self) -> None:
         """Apply damping to variable values using previous iteration values."""
-        logger.debug(
-            "APPLYING DAMPING: iteration %d, tau=%s", self.iter.k, self.tau.value
-        )
+        logger.debug("Damping: iteration %d, tau=%s", self.iter.k, self.tau.value)
+        # print("Applying damping to variable values...")
         for var in self.prob_in.variables():
             if var.value is not None and var in self._prev_var_values:
                 prev_val = self._prev_var_values[var]
@@ -235,7 +237,7 @@ class DCCP:
             for var in self.prob_in.variables():
                 var.value = self.iter.prob.var_dict[var.name()].value
 
-        # Return the original objective value for the original problem
+        # return the original objective value for the original problem
         if converged:
             obj_value = self.prob_in.objective.value
             if obj_value is not None and isinstance(
