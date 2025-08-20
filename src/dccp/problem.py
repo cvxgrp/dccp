@@ -49,10 +49,11 @@ class DCCPIter:
             return self.prob.objective.value - self.tau.value * self.slack  # type: ignore[reportOptionalOperand]
         return np.inf
 
-    def solve(self, *args: Any, **kwargs: Any) -> float | None:
+    def solve(self, **kwargs: Any) -> float | None:
         """Solve the DCCP sub-problem."""
+        print(f"got kwargs={kwargs}")
         self.k += 1
-        result = self.prob.solve(*args, **kwargs)
+        result = self.prob.solve(**kwargs)
         if isinstance(result, (int, float, np.floating)):
             self.cost = float(result)
             return self.cost
@@ -90,14 +91,13 @@ class DCCP:
         self.tau = cp.Parameter(nonneg=True, value=settings.tau_ini, name="tau")
 
         # construction of DCCP sub-problem
-        initialize(
-            prob,
-            random=(self.conf.k_ccp > 1),
-            solver=self.conf.solver,
-            seed=self.conf.seed,
-            std=self.conf.std,
-            k_ini=self.conf.k_ini,
-        )
+        init_kwargs = {}
+        if self.conf.k_ccp is not None and self.conf.k_ccp > 1:
+            init_kwargs["random"] = True
+        if self.conf.solver is not None:
+            init_kwargs["solver"] = self.conf.solver
+
+        initialize(prob, **init_kwargs)
         self.iter = DCCPIter(prob)
         self._construct_subproblem()
 
@@ -150,8 +150,7 @@ class DCCP:
         while not (converged or self.iter.k > self.conf.max_iter):
             print(f"Iteration {self.iter.k}, tau={self.iter.tau.value}")
             self._construct_subproblem()
-            print("Solving DCCP sub-problem...")
-            new_cost = self.iter.solve(self.solve_args)
+            new_cost = self.iter.solve(**self.solve_args)
             new_cost_ns = self.iter.cost_ns
             slack = self.iter.slack
 
@@ -213,6 +212,7 @@ def dccp(  # noqa: PLR0913
     **kwargs: Any,
 ) -> float:
     """Run the DCCP algorithm on the given problem."""
+    print(f"got solver={solver}, kwargs={kwargs}")
     dccp_solver = DCCP(
         prob,
         settings=DCCPSettings(
