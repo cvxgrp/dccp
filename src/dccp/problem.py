@@ -78,15 +78,13 @@ class DCCP:
         if prob.is_dcp():
             msg = "The problem is DCP compliant, solve it with a DCP solver."
             raise NonDCCPError(msg)
-        if not is_dccp(prob):
+        if settings.verify_dccp and not is_dccp(prob):
             msg = "Problem is not DCCP."
             raise NonDCCPError(msg)
 
-        # store the problem
+        # store the problem and settings
         self.is_maximization = isinstance(prob.objective, cp.Maximize)
         self.prob_in = prob
-
-        # DCCP settings
         self.solve_args = kwargs
         self.conf = settings
 
@@ -268,6 +266,7 @@ def dccp(  # noqa: PLR0913
     max_slack: float = 1e-3,
     ep: float = 1e-5,
     seed: int | None = None,
+    verify_dccp: bool = True,
     **kwargs: Any,
 ) -> float:
     """Run the DCCP algorithm on the given problem."""
@@ -284,6 +283,7 @@ def dccp(  # noqa: PLR0913
             max_slack=max_slack,
             ep=ep,
             seed=seed,
+            verify_dccp=verify_dccp,
         ),
         **kwargs,
     )

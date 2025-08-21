@@ -29,6 +29,7 @@ class DCCPSettings:
     ep: float = 1e-5
     std: float = 10.0
     seed: int | None = None
+    verify_dccp: bool = True
 
 
 class NonDCCPError(Exception):

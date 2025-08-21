@@ -91,3 +91,20 @@ class TestExamples:
         assert_almost_equal(float(result), 0)  # type: ignore
         assert x.value is not None
         assert_almost_equal(float(x.value[0]), 0)  # type: ignore
+
+    def test_bilinear(self) -> None:
+        """Test bilinear problem."""
+        x = cp.Variable(1, name="x", nonneg=True)
+        y = cp.Variable(1, name="y", nonneg=True)
+        # obj = cp.Minimize(cp.sum_squares(x + y) - cp.sum_squares(x - y))
+        obj = cp.Minimize(cp.sum(x @ y))
+        constr: list[cp.Constraint] = [x >= 0, y >= 0, x + y <= 1]
+        prob = cp.Problem(obj, constr)
+        result = prob.solve(
+            method="dccp",
+            verify_dccp=False,
+            seed=0,
+        )
+        assert prob.status == cp.OPTIMAL
+        assert result is not None
+        assert_almost_equal(float(result), 0)  # type: ignore

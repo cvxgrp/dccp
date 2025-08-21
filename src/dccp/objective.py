@@ -39,12 +39,7 @@ def convexify_obj(obj: cp.Minimize | cp.Maximize) -> cp.Minimize | None:
     if obj.is_dcp():
         return cp.Minimize(expr)
 
-    if not is_dccp(obj):
-        msg = (
-            "The objective is not DCCP compliant. Please ensure the objective is "
-            "constructed from DCP atoms so its curvature can be inferred."
-        )
-        raise ValueError(msg)
+    # linearize the objective expression. If it fails, the gradient is not defined
     lin = linearize(expr)
     if lin is not None:
         return cp.Minimize(lin)
