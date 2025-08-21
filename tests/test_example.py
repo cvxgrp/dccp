@@ -96,15 +96,19 @@ class TestExamples:
         """Test bilinear problem."""
         x = cp.Variable(1, name="x", nonneg=True)
         y = cp.Variable(1, name="y", nonneg=True)
-        # obj = cp.Minimize(cp.sum_squares(x + y) - cp.sum_squares(x - y))
-        obj = cp.Minimize(cp.sum(x @ y))
-        constr: list[cp.Constraint] = [x >= 0, y >= 0, x + y <= 1]
+        obj = cp.Minimize(cp.square(x + y) + cp.square(x - y))
+        constr: list[cp.Constraint] = [cp.square(x - 2) + cp.square(y - 2) == 2]
         prob = cp.Problem(obj, constr)
         result = prob.solve(
             method="dccp",
             verify_dccp=False,
             seed=0,
+            ep=1e-2,
         )
         assert prob.status == cp.OPTIMAL
         assert result is not None
-        assert_almost_equal(float(result), 0)  # type: ignore
+        assert_almost_equal(float(result), 4.0)  # type: ignore
+        assert x.value is not None
+        assert_almost_equal(float(x.value[0]), 1.0)  # type
+        assert y.value is not None
+        assert_almost_equal(float(y.value[0]), 1.0)  # type

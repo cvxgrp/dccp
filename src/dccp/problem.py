@@ -53,7 +53,6 @@ class DCCPIter:
 
     def solve(self, **kwargs: Any) -> float | None:
         """Solve the DCCP sub-problem."""
-        logger.debug("Solving iteration %d with kwargs=%s", self.k, kwargs)
         self.k += 1
         result = self.prob.solve(**kwargs)
         if isinstance(result, (int, float, np.floating)):
