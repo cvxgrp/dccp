@@ -67,3 +67,5 @@ target/
 # uv
 uv.lock
 *.png
+
+_examples

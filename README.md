@@ -1,99 +1,65 @@
-DCCP
-====
+# cvx-package-template
 
-DCCP package provides an organized heuristic for convex-concave programming.
-It tries to solve nonconvex problems where every function in the objective and the constraints has any known curvature according to the rules of disciplined convex programming (DCP).
-For instance, DCCP can be used to maximize a convex function. 
-The full details of our approach are discussed in [the associated paper](https://stanford.edu/~boyd/papers/dccp.html). 
-DCCP is built on top of [CVXPY](http://www.cvxpy.org/), a domain-specific language for convex optimization embedded in Python.
+[![build](https://github.com/langestefan/cvx-package-template/actions/workflows/release.yaml/badge.svg)](https://github.com/langestefan/cvx-package-template/actions/workflows/build.yml)
+[![docs](https://img.shields.io/badge/docs-online-brightgreen?logo=read-the-docs&style=flat)](https://langestefan.github.io/cvx-package-template/)
+[![codecov](https://codecov.io/gh/langestefan/cvx-package-template/graph/badge.svg?token=WQKQEUOS8B)](https://codecov.io/gh/langestefan/cvx-package-template)
+[![license](https://img.shields.io/github/license/langestefan/cvx-package-template)](https://github.com/langestefan/cvx-package-template/blob/main/LICENSE)
+[![pypi](https://img.shields.io/pypi/v/cvx-package-template)](https://pypi.org/project/cvx-package-template/)
 
-Installation
-------------
-You should first install [CVXPY 1.1](http://www.cvxpy.org/).
+## Template instructions (to be removed)
 
-To install the most updated DCCP, please download the repository and run ``python setup.py install`` inside.
+This is a template for creating packages in the cvxpy ecosystem. It provides a basic
+structure and configuration for a Python package, including:
 
-To install DCCP from pip, please run ``pip install dccp``.
+- A `pyproject.toml` file for package metadata and dependencies.
+- A `tests` directory for unit tests using `pytest` and `pytest-cov` for coverage
+reporting.
+- A `docs` directory for documentation using Sphinx.
+- A `examples` directory for example usage of the package, which will be displayed in
+the documentation.
+- Linting and formatting using `ruff` and typechecking using `ty`.
+- Pre-commit hooks using `pre-commit` to ensure code quality before committing changes.
 
-DCCP rules
-----------
-A problem satisfies the rules of disciplined convex-concave programming (DCCP) if it has the form
-```
-minimize/maximize o(x)
-subject to  l_i(x) ~ r_i(x),  i=1,...,m,
-```
-where ``o`` (the objective), ``l_i`` (left-hand sides), and ``r_i`` (right-hand sides) are expressions (functions
-in the variable ``x``) with curvature known from the DCP composition rules, and ``∼`` denotes one of the
-relational operators ``==``, ``<=``, or ``>=``.
+## Running tests
 
-In a disciplined convex program, the curvatures of ``o``, ``l_i``, and ``r_i`` are restricted to ensure that the problem is convex. For example, if the objective is ``maximize o(x)``, then ``o`` must be concave according to the DCP composition rules. In a disciplined convex-concave program, by contrast, the objective and right and left-hand sides of the constraints can have any curvature, so long as all expressions satisfy the DCP composition rules.
+To be able to run unit tests with [uv](https://github.com/astral-sh/uv) you will need:
 
-The variables, parameters, and constants in DCCP should be real numbers. Problems containing complex numbers may not be supported by DCCP.
-
-
-Example
--------
-The following code uses DCCP to approximately solve a simple nonconvex problem.
-```python
-import cvxpy as cp
-import dccp
-x = cp.Variable(2)
-y = cp.Variable(2)
-myprob = cp.Problem(cp.Maximize(cp.norm(x - y,2)), [0 <= x, x <= 1, 0 <= y, y <= 1])
-print("problem is DCP:", myprob.is_dcp())   # false
-print("problem is DCCP:", dccp.is_dccp(myprob))  # true
-result = myprob.solve(method='dccp')
-print("x =", x.value)
-print("y =", y.value)
-print("cost value =", result[0])
-```
-The output of the above code is as follows.
-```
-problem is DCP: False
-problem is DCCP: True
-x = [ 1. -0.]
-y = [-0.  1.]
-cost value = 1.4142135623730951
+```bash
+uv sync --group dev
 ```
 
-The solutions obtained by DCCP can depend on the initial point of the CCP algorithm.
-The algorithm starts from the values of any variables that are already specified; for any that are not specified, random values are used. 
-You can specify an initial value manually by setting the ``value`` field of the variable.
-For example, the following code runs the CCP algorithm with the specified initial values for ``x`` and ``y``:
-```python
-x.value = numpy.array([1, 2])
-y.value = numpy.array([-1, 1])
-result = myprob.solve(method='dccp')
+You can then run the tests using:
+
+```bash
+uv run pytest tests
 ```
-An option is to use random initialization for all variables by ``prob.solve(method=‘dccp’, random_start=TRUE)``, and by setting the parameter ``ccp_times`` you can specify the times that the CCP algorithm runs starting from random initial values for all variables each time.
 
-Constructing and solving problems
----------------------------------
-The components of the variable, the objective, and the constraints are constructed using standard CVXPY syntax. 
-Once a problem object has been constructed, the following solve method can be applied.
-* ``problem.solve(method='dccp')`` applies the CCP heuristic, and returns the value of the cost function, the maximum value of the slack variables, and the value of each variable. Additional arguments can be used to specify the parameters.
+Alternatively, with `pip` you can install the `dev` dependencies and run the tests using:
 
-Solve method parameters:
-* The ``ccp_times`` parameter specifies how many random initial points to run the algorithm from. The default is 1.
-* The ``max_iter`` parameter sets the maximum number of iterations in the CCP algorithm. The default is 100.
-* The ``solver`` parameter specifies what solver to use to solve convex subproblems.
-* The ``tau`` parameter trades off satisfying the constraints and minimizing the objective. Larger ``tau`` favors satisfying the constraints. The default is 0.005.
-* The ``mu`` parameter sets the rate at which ``tau`` increases inside the CCP algorithm. The default is 1.2.
-* The ``tau_max`` parameter upper bounds how large ``tau`` can get. The default is 1e8.
+```bash
+pip install -e .[dev]
+pytest tests
+```
 
-If the convex solver for subproblems accepts any additional keyword arguments, such as ``warm_start=True``, then you can set them in the ``problem.solve()`` function, and they will be passed to the convex solver.
+## Building documentation locally
 
-Result status
-----------------
-After running the solve method, the result status is stored in ``problem.status``. 
-The status ``Converged`` means that the algorithm has converged, i.e., the slack variables converge to 0, and changes in the objective value are small enough.
-The obtained solution is at least a feasible point, but it is not guaranteed to be globally optimum.
-The status ``Not converged`` indicates that the algorithm has not converged, and specifically, if the slack variables (printed in the log) are not close to 0, then it usually indicates that some nonconvex constraint has not been satisfied.
+To build and run the documentation locally using `sphinx-autobuild`,
+you need to first install dependencies using the following commands:
 
-Other useful functions and attributes
-----------------
-* ``is_dccp(problem)`` returns a boolean indicating if an optimization problem satisfies DCCP rules.
-* ``linearize(expression)`` returns the linearization of a DCP expression at the point specified by ``variable.value``.
-* ``convexify_obj(objective)`` returns the convexified objective of a DCCP objective.
-* ``convexify_constr(constraint)`` returns the convexified constraint (without slack
-variables) of a DCCP constraint, and if any expression is linearized, its domain is also returned.
+```bash
+uv sync --group dev --group doc
+uv run sphinx-autobuild docs/src docs/_build/html
+```
+
+Alternatively, with `pip` you can install the `dev` and `doc` dependencies and run the documentation using:
+
+```bash
+pip install -e .[dev,doc]
+sphinx-autobuild docs/src docs/_build/html
+```
+
+## Repository description goes here.
+
+The full documentation is available [here](https://www.cvxgrp.org/repository/).
+
+If you wish to cite repository please cite the papers listed [here](https://www.cvxgrp.org/repository/citing).
