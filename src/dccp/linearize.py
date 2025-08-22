@@ -5,8 +5,6 @@ import numpy as np
 
 from dccp.utils import ORDER
 
-PARAMS_X0: dict[cp.Variable, cp.Parameter] = {}
-
 
 def linearize(expr: cp.Expression) -> cp.Expression | None:
     """Return the tangent approximation to the expression.
@@ -61,16 +59,10 @@ def linearize(expr: cp.Expression) -> cp.Expression | None:
         )
         raise ValueError(msg)
 
-    # create linearization parameters for variables if not already present
-    for var in expr.variables():
-        if var in PARAMS_X0:
-            continue
-        PARAMS_X0[var] = cp.CallbackParam(
-            lambda var=var: var.value, var.shape, name=f"x0_{var.id}"
-        )
-
     tangent = expr.value
     grad_map = expr.grad
+
+    # compute contribution from each variable to the gradients
     for var in expr.variables():
         if grad_map[var] is None:
             return None
@@ -86,6 +78,8 @@ def linearize(expr: cp.Expression) -> cp.Expression | None:
             tangent = tangent + np.transpose(grad_map[var]) @ (var - var.value)
         else:
             tangent = tangent + grad_map[var] * (var - var.value)
+
     if not isinstance(tangent, cp.Expression):
         tangent = cp.Constant(tangent)
+
     return tangent
