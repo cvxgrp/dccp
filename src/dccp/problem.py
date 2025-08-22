@@ -45,11 +45,20 @@ class DCCPIter:
         return max(slack_values, default=0.0)
 
     @property
+    def slack_sum(self) -> float:
+        """Sum of all slack elements."""
+        total = 0.0
+        for s in self.vars_slack:
+            if s.value is not None:
+                total += float(np.sum(s.value))
+        return total
+
+    @property
     def cost_ns(self) -> float:
-        """Get the cost without slack."""
-        if self.prob.objective.value is not None:
-            return self.prob.objective.value - self.tau.value * self.slack  # type: ignore[reportOptionalOperand]
-        return np.inf
+        """Objective value minus τ * sum(slack)."""
+        if self.prob.objective.value is None:
+            return np.inf
+        return float(self.prob.objective.value) - float(self.tau.value) * self.slack_sum  # type: ignore[reportArgumentType]
 
     def solve(self, **kwargs: Any) -> float | None:
         """Solve the DCCP sub-problem."""
