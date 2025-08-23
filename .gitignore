@@ -68,4 +68,7 @@ target/
 uv.lock
 *.png
 
+# autodocs
+docs/src/api
+docs/src/examples/*.ipynb
 _examples

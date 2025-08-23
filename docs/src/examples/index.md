@@ -10,4 +10,6 @@ circle_packing
 boolean_least_squares
 path_planning
 control_collision_avoidance
+filter_design
+phase_retrieval
 ```
