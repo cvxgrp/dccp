@@ -6,5 +6,6 @@ This page contains examples demonstrating the capabilities of this package.
 ---
 maxdepth: 1
 ---
-quadratic_program
+circle_packing
+boolean_least_squares
 ```
