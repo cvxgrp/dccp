@@ -58,7 +58,9 @@ class DCCPIter:
         """Objective value minus τ * sum(slack)."""
         if self.prob.objective.value is None:
             return np.inf
-        return float(self.prob.objective.value) - float(self.tau.value) * self.slack_sum  # type: ignore[reportArgumentType]
+        obj_val = float(np.asarray(self.prob.objective.value).item())
+        tau_val = float(np.asarray(self.tau.value).item())
+        return obj_val - tau_val * self.slack_sum
 
     def solve(self, **kwargs: Any) -> float | None:
         """Solve the DCCP sub-problem."""
@@ -195,7 +197,11 @@ class DCCP:
             new_constr.append(c_conv.constr.expr <= v_slack)
 
         # build new problem
-        cost = obj.expr + self.tau * cp.sum(var_slack) if var_slack else obj.expr  # type: ignore[reportOptionalMemberAccess]
+        if var_slack:
+            slack_sum = cp.sum([cp.sum(s) for s in var_slack])
+            cost = obj.expr + self.tau * slack_sum  # type: ignore[reportOptionalMemberAccess]
+        else:
+            cost = obj.expr  # type: ignore[reportOptionalMemberAccess]
         new_prob = cp.Problem(cp.Minimize(cost), new_constr)
 
         # Update the existing iter object instead of creating a new one
@@ -232,10 +238,9 @@ class DCCP:
             prev_cost_ns = new_cost_ns if new_cost_ns is not None else prev_cost_ns
 
             # update tau for the next iteration
-            self.iter.tau.value = min(
-                self.conf.tau_max,
-                self.iter.tau.value * self.conf.mu,  # type: ignore[reportOptionalOperand]
-            )
+            if self.iter.tau.value is not None:
+                tau_mul = float(self.iter.tau.value) * self.conf.mu
+                self.iter.tau.value = min(self.conf.tau_max, tau_mul)
 
             logger.debug(
                 "Iteration %d: cost=%s, cost_ns=%s, slack=%s, tau=%s",
@@ -246,8 +251,10 @@ class DCCP:
                 self.iter.tau.value,
             )
 
-        # write the solution back to the original problem
+        # terminate with infeasibility if not converged after max iterations
         self.prob_in._status = cp.INFEASIBLE  # noqa: SLF001
+
+        # write the solution back to the original problem
         if converged:
             self.prob_in._status = cp.OPTIMAL  # noqa: SLF001
             for var in self.prob_in.variables():

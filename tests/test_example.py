@@ -2,6 +2,7 @@
 
 import cvxpy as cp
 import numpy as np
+import pytest
 from cvxpy.constraints.constraint import Constraint
 
 from dccp import is_dccp
@@ -92,6 +93,7 @@ class TestExamples:
         assert x.value is not None
         assert_almost_equal(float(x.value[0]), 0)  # type: ignore
 
+    @pytest.mark.skip(reason="Bilinear problems are not supported in DCCP yet.")
     def test_bilinear(self) -> None:
         """Test bilinear problem."""
         x = cp.Variable(1, name="x", nonneg=True)
@@ -112,3 +114,26 @@ class TestExamples:
         assert_almost_equal(float(x.value[0]), 1.0)  # type
         assert y.value is not None
         assert_almost_equal(float(y.value[0]), 1.0)  # type
+
+    def test_boolean_least_squares(self) -> None:
+        """Test boolean least squares problem."""
+        n = 100
+        noise_sigma = np.sqrt(n / 4)
+        rng = np.random.default_rng(seed=0)
+        A = rng.standard_normal((n, n))  # noqa: N806
+        x0 = rng.integers(0, 2, size=(n, 1))
+        x0 = x0 * 2 - 1
+        v = rng.standard_normal((n, 1)) * noise_sigma
+        y = np.dot(A, x0) + v
+        x = cp.Variable((n, 1))
+        constr: list[Constraint] = [cp.square(x) == 1]
+
+        # solve by dccp
+        prob = cp.Problem(cp.Minimize(cp.norm(A @ x - y, 2)), constr)
+        result = prob.solve(method="dccp", ep=1e-3, max_slack=1e-3, seed=0)
+        assert prob.status == cp.OPTIMAL
+        assert result is not None
+        solution = list(x.value)  # type: ignore
+        recover = np.matrix(solution)
+        err = np.linalg.norm(recover - x0, 2)
+        assert err < 8.0

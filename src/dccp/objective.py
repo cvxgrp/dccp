@@ -37,6 +37,7 @@ def convexify_obj(obj: cp.Minimize | cp.Maximize) -> cp.Minimize | None:
     if isinstance(obj, cp.Maximize):
         expr = -expr
     if obj.is_dcp():
+        logger.debug("Objective %s is already DCP.", expr)
         return cp.Minimize(expr)
 
     # linearize the objective expression. If it fails, the gradient is not defined
