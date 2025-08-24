@@ -122,6 +122,7 @@ filterwarnings = [
 
 [tool.ruff]
 line-length = 88
+exclude = ["examples"]
 
 [tool.ruff.lint]
 ignore = [
