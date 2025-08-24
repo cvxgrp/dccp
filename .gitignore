@@ -72,3 +72,4 @@ uv.lock
 docs/src/api
 docs/src/examples/*.ipynb
 _examples
+.vscode/settings.json
