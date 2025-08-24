@@ -17,7 +17,7 @@ reporting.
 - A `docs` directory for documentation using Sphinx.
 - A `examples` directory for example usage of the package, which will be displayed in
 the documentation.
-- Linting and formatting using `ruff` and typechecking using `ty`.
+- Linting and formatting using `ruff`.
 - Pre-commit hooks using `pre-commit` to ensure code quality before committing changes.
 
 ## Running tests

@@ -83,13 +83,6 @@ repos:
         types: [text]
         entry: uv run end-of-file-fixer
         stages: [pre-commit, pre-push, manual]
-      - id: ty
-        name: 🆎 Static type checking using ty
-        language: system
-        types: [python]
-        entry: uv run ty check
-        require_serial: true
-        exclude: ^docs/
       - id: no-commit-to-branch
         name: 🛑 Don't commit to main branchpre-commit migrate-config
         language: system
