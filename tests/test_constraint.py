@@ -71,3 +71,24 @@ class TestExample:
         x.value = [-1]
         out = convexify_constr(constr)
         assert out is None, "Expected None for non-DCCP constraint"
+
+    def test_convexify_constr_non_concave_left_side(self) -> None:
+        """Test convexify constraint with non-concave left-hand side."""
+        x = cp.Variable(1)
+        y = cp.Variable(1)
+        constr = x <= y**2
+        x.value = [1.0]
+        y.value = [1.0]
+
+        constr_conv = convexify_constr(constr)
+        assert constr_conv is not None
+        assert constr_conv.constr is not None
+
+    def test_convexify_constr_failed_linearization(self) -> None:
+        """Test convexify constraint when linearization fails."""
+        x = cp.Variable(1)
+        y = cp.Variable(1)
+        constr = x <= y**2
+        x.value = [1.0]
+        constr_conv = convexify_constr(constr)
+        assert constr_conv is None

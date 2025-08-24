@@ -50,20 +50,10 @@ class DCCPIter:
     def __post_init__(self) -> None:
         """Post-initialization."""
 
-    @property
-    def status(self) -> str:
-        """Return the status of the DCCP sub-problem."""
-        return self.prob.status
-
 
 def is_obj_dccp(objective: cp.Minimize | cp.Maximize) -> bool:
     """Check if the objective is DCCP."""
     return objective.expr.curvature != "UNKNOWN"
-
-
-def is_sparse(x: cp.Variable | cp.Parameter) -> bool:
-    """Check if a CVXPY variable or parameter is sparse."""
-    return x.sparse_idx is not None
 
 
 def is_dccp(problem: cp.Problem) -> bool:

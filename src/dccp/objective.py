@@ -9,11 +9,6 @@ from dccp.linearize import linearize
 logger = logging.getLogger("dccp")
 
 
-def is_dccp(objective: cp.Minimize | cp.Maximize) -> bool:
-    """Check if the objective is DCCP compliant."""
-    return objective.expr.curvature != "UNKNOWN"
-
-
 def convexify_obj(obj: cp.Minimize | cp.Maximize) -> cp.Minimize | None:
     """Convexify an objective function for DCCP problems.
 

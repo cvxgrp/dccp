@@ -28,30 +28,22 @@ class DCCPIter:
     cost: float = np.inf
 
     @property
-    def status(self) -> str | None:
-        """Get the status of the DCCP iteration."""
-        return self.prob.status
-
-    @property
     def slack(self) -> float:
         """Get the maximum slack variable value."""
         if not self.vars_slack:
             return 0.0
-        slack_values = []
-        for s in self.vars_slack:
-            val = s.value
-            if val is not None:
-                slack_values.append(np.max(val))
+        slack_values = [
+            np.max(s.value) if s.value is not None else 0.0 for s in self.vars_slack
+        ]
         return max(slack_values, default=0.0)
 
     @property
     def slack_sum(self) -> float:
         """Sum of all slack elements."""
-        total = 0.0
-        for s in self.vars_slack:
-            if s.value is not None:
-                total += float(np.sum(s.value))
-        return total
+        return sum(
+            float(np.sum(s.value)) if s.value is not None else 0.0
+            for s in self.vars_slack
+        )
 
     @property
     def cost_ns(self) -> float:

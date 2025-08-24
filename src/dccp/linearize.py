@@ -38,14 +38,14 @@ def linearize(expr: cp.Expression) -> cp.Expression | None:
 
     """
     expr_str = f"Affected expression [{expr.name()}]: {expr}."
-    if expr.is_affine():
-        return expr
     if expr.is_complex() or any(v.is_complex() for v in expr.variables()):
         msg = (
             "Linearization does not support complex variables or expressions. "
             f"Please use real-valued expressions and variables. {expr_str}"
         )
         raise ValueError(msg)
+    if expr.is_affine():
+        return expr
     if expr.parameters():
         msg = (
             "Linearization does not support user-defined parameters in non-convex "
@@ -77,7 +77,4 @@ def linearize(expr: cp.Expression) -> cp.Expression | None:
         else:
             tangent = tangent + grad_map[var] * (var - var.value)
 
-    if not isinstance(tangent, cp.Expression):
-        tangent = cp.Constant(tangent)
-
-    return tangent
+    return tangent  # type: ignore[reportReturnType]
