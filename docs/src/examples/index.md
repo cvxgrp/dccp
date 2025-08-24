@@ -12,4 +12,5 @@ path_planning
 control_collision_avoidance
 filter_design
 phase_retrieval
+sparse_recovery
 ```
