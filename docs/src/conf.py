@@ -8,9 +8,8 @@ serve to show the default.
 """
 
 import sys
-from pathlib import Path
-
 import tomllib
+from pathlib import Path
 
 # add the repository root to the Python path so we can import the package
 docs_dir = Path(__file__).parent
