@@ -190,9 +190,9 @@ class DCCP:
         # build new problem
         if var_slack:
             slack_sum = cp.sum([cp.sum(s) for s in var_slack])
-            cost = obj.expr + self.tau * slack_sum  # type: ignore[reportOptionalMemberAccess]
+            cost = obj.expr + self.tau * slack_sum  # type: ignore  # noqa: PGH003
         else:
-            cost = obj.expr  # type: ignore[reportOptionalMemberAccess]
+            cost = obj.expr  # type: ignore  # noqa: PGH003
         new_prob = cp.Problem(cp.Minimize(cost), new_constr)
 
         # Update the existing iter object instead of creating a new one

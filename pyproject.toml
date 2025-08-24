@@ -88,13 +88,21 @@ extension-pkg-whitelist = ["orjson"]
 ignore = ["tests"]
 
 [tool.pylint.BASIC]
-good-names = ["_", "ex", "fp", "i", "id", "j", "k", "on", "Run", "T"]
+good-names = ["_", "ex", "fp", "i", "id", "j", "k", "on", "Run", "T", "A"]
 
 [tool.pylint.DESIGN]
 max-attributes = 8
 
 [tool.pylint."MESSAGES CONTROL"]
-disable = ["duplicate-code", "format", "unsubscriptable-object"]
+disable = [
+    "unsubscriptable-object",
+    "too-many-locals",
+    "invalid-name",
+    "too-many-arguments",
+    "too-many-positional-arguments",
+    "too-many-instance-attributes",
+    "protected-access",
+]
 
 [tool.pylint.SIMILARITIES]
 ignore-imports = true
@@ -138,3 +146,6 @@ known-first-party = ["dccp"]
 
 [tool.ruff.lint.mccabe]
 max-complexity = 25
+
+[tool.codespell]
+ignore-words-list = "fro"

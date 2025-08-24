@@ -70,7 +70,7 @@ repos:
         name: ✅ Check code for common misspellings
         language: system
         types: [text]
-        exclude: ^uv\.lock$
+        exclude: ^(uv\.lock|examples/.*)$
         entry: uv run codespell
       - id: detect-private-key
         name: 🕵️  Detect Private Keys

@@ -21,7 +21,7 @@ class TestDCCPIter:
         assert iter_obj.k == 0
         assert iter_obj.cost == np.inf
         assert iter_obj.tau.value == 0.005
-        assert iter_obj.vars_slack == []
+        assert not iter_obj.vars_slack
 
     def test_slack_property_no_slack_vars(self) -> None:
         """Test slack property when no slack variables exist."""
