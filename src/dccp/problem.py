@@ -95,7 +95,7 @@ class DCCP:
         # store the problem and settings
         self.is_maximization = isinstance(prob.objective, cp.Maximize)
         self.prob_in = prob
-        self.solve_args = kwargs
+        self.solve_args = kwargs.copy()
         self.conf = settings
 
         # slack loss weight tau
@@ -105,10 +105,9 @@ class DCCP:
         init_kwargs = {}
         if self.conf.k_ccp is not None and self.conf.k_ccp > 1:
             init_kwargs["random"] = True
-        if self.conf.solver is not None:
-            init_kwargs["solver"] = self.conf.solver
         if self.conf.seed is not None:
             init_kwargs["seed"] = self.conf.seed
+        init_kwargs["solver"] = kwargs.get("solver")
 
         initialize(prob, **init_kwargs)
         self.iter = DCCPIter(
@@ -276,7 +275,6 @@ def dccp(  # noqa: PLR0913
     tau: float = 0.005,
     mu: float = 1.2,
     tau_max: float = 1e8,
-    solver: str | None = None,
     k_ccp: int = 1,
     max_slack: float = 1e-3,
     ep: float = 1e-5,
@@ -285,7 +283,7 @@ def dccp(  # noqa: PLR0913
     **kwargs: Any,
 ) -> float:
     """Run the DCCP algorithm on the given problem."""
-    logger.debug("Running DCCP with solver=%s, kwargs=%s", solver, kwargs)
+    logger.debug("Running DCCP with solver=%s, kwargs=%s", kwargs.get("solver"), kwargs)
     dccp_solver = DCCP(
         prob,
         settings=DCCPSettings(
@@ -293,7 +291,6 @@ def dccp(  # noqa: PLR0913
             tau_ini=tau,
             mu=mu,
             tau_max=tau_max,
-            solver=solver,
             k_ccp=k_ccp,
             max_slack=max_slack,
             ep=ep,

@@ -22,7 +22,6 @@ class DCCPSettings:
     tau_ini: float = 0.005
     mu: float = 1.2
     tau_max: float = 1e8
-    solver: str | None = None
     k_ini: int = 1
     k_ccp: int = 1
     max_slack: float = 1e-3
