@@ -52,12 +52,10 @@ def linearize(expr: cp.Expression) -> cp.Expression | None:
             f"expressions. Remove any such parameters before linearizing. {expr_str}"
         )
         raise ValueError(msg)
+
+    # no numeric point to linearize at yet; let caller try damping
     if expr.value is None:
-        msg = (
-            "Cannot linearize non-affine expression with missing variable values. "
-            f"{expr_str}"
-        )
-        raise ValueError(msg)
+        return None
 
     tangent = expr.value
     grad_map = expr.grad

@@ -134,6 +134,9 @@ class TestExamples:
         assert prob.status == cp.OPTIMAL
         assert result is not None
         solution = list(x.value)  # type: ignore
-        recover = np.matrix(solution)
+        recover = np.array(solution)
         err = np.linalg.norm(recover - x0, 2)
         assert err < 8.0
+        # check all x[i] are close to either +1 or -1
+        for i in range(n):
+            assert abs(abs(recover[i, 0]) - 1) < 1e-2
