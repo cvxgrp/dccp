@@ -56,7 +56,7 @@ class TestExamples:
 
         assert not prob_cp.is_dcp()
         assert is_dccp(prob_cp)
-        prob_cp.solve(method="dccp", solver="ECOS", ep=1e-3, max_slack=1e-3, seed=0)
+        prob_cp.solve(method="dccp", solver="SCS", ep=1e-3, max_slack=1e-3, seed=0)
         assert prob_cp.status == cp.OPTIMAL
 
         le = cp.max(cp.max(cp.abs(c), axis=1) + r).value * 2  # type: ignore
@@ -69,7 +69,7 @@ class TestExamples:
         constr: list[Constraint] = [cp.log(x) <= 1, x >= 1]
         prob = cp.Problem(cp.Minimize(cp.log(x)), constr)
         result = prob.solve(
-            method="dccp", solver="ECOS", ep=1e-3, max_slack=1e-3, seed=0
+            method="dccp", solver="Clarabel", ep=1e-3, max_slack=1e-3, seed=0
         )
         assert prob.status == cp.OPTIMAL
         assert result is not None
