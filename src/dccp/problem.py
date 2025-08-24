@@ -267,6 +267,52 @@ class DCCP:
         """Solve a problem using the Disciplined Convex-Concave Procedure."""
         return self._solve() * (-1 if self.is_maximization else 1)
 
+    def solve_multi_init(self, num_inits: int) -> float:
+        """Solve with multiple random initializations and return the best result."""
+        if num_inits <= 1:
+            return self()
+
+        best_cost = np.inf
+        best_var_values = {}
+        best_status = cp.INFEASIBLE
+
+        for _ in range(num_inits):
+            # store original variable values
+            orig_values = {}
+            for var in self.prob_in.variables():
+                orig_values[var] = var.value.copy() if var.value is not None else None
+
+            # reset and solve with new random initialization
+            initialize(self.prob_in, random=True)
+            self.iter.k = 0
+            self.iter.cost = np.inf
+            self._prev_var_values = {}
+            self._store_previous_values()
+
+            try:
+                cost = self._solve()
+                if self.prob_in.status == cp.OPTIMAL and cost < best_cost:
+                    best_cost = cost
+                    best_status = self.prob_in.status
+                    best_var_values = {
+                        var: var.value.copy() if var.value is not None else None
+                        for var in self.prob_in.variables()
+                    }
+            except (NonDCCPError, RuntimeError):
+                continue
+
+            # restore original values for next iteration
+            for var in self.prob_in.variables():
+                var.value = orig_values[var]
+
+        # set the best solution
+        self.prob_in._status = best_status  # noqa: SLF001
+        for var in self.prob_in.variables():
+            if var in best_var_values:
+                var.value = best_var_values[var]
+
+        return best_cost * (-1 if self.is_maximization else 1)
+
 
 def dccp(  # noqa: PLR0913
     prob: cp.Problem,
@@ -299,4 +345,6 @@ def dccp(  # noqa: PLR0913
         ),
         **kwargs,
     )
+    if k_ccp > 1:
+        return dccp_solver.solve_multi_init(k_ccp)
     return dccp_solver()

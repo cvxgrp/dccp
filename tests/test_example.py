@@ -140,3 +140,19 @@ class TestExamples:
         # check all x[i] are close to either +1 or -1
         for i in range(n):
             assert abs(abs(recover[i, 0]) - 1) < 1e-2
+
+    def test_multi_initialization(self) -> None:
+        """Test solving with multiple random initializations."""
+        y = cp.Variable(2, name="y")
+        z = cp.Variable(2, name="z")
+        prob = cp.Problem(
+            cp.Maximize(cp.norm(y - z, 2)),
+            [y >= 0, y <= 1, z >= 0, z <= 1],
+        )
+
+        # solve with multiple initializations
+        result_multi = prob.solve(method="dccp", k_ccp=5)
+
+        assert prob.status == cp.OPTIMAL
+        assert result_multi is not None
+        assert_almost_equal(float(result_multi), np.sqrt(2))  # type: ignore
