@@ -71,5 +71,7 @@ uv.lock
 # autodocs
 docs/src/api
 docs/src/examples/*.ipynb
+
+# project
 _examples
 .vscode/settings.json

@@ -13,4 +13,6 @@ control_collision_avoidance
 filter_design
 phase_retrieval
 sparse_recovery
+gaussian_covariance_matrix
+sparse_singular_vectors
 ```
