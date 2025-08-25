@@ -1,7 +1,7 @@
 # DCCP
 
 [![build](https://github.com/cvxgrp/dccp/actions/workflows/release.yaml/badge.svg)](https://github.com/cvxgrp/dccp/actions/workflows/release.yaml)
-[![docs](https://img.shields.io/badge/docs-online-brightgreen?logo=read-the-docs&style=flat)](https://cvxgrp.github.io/dccp/)
+[![docs](https://img.shields.io/badge/docs-online-brightgreen?logo=read-the-docs&style=flat)](https://www.cvxpy.org/dccp/)
 [![codecov](https://codecov.io/gh/cvxgrp/dccp/graph/badge.svg)](https://codecov.io/gh/cvxgrp/dccp)
 [![license](https://img.shields.io/github/license/cvxgrp/dccp)](https://github.com/cvxgrp/dccp/blob/main/LICENSE)
 [![pypi](https://img.shields.io/pypi/v/dccp)](https://pypi.org/project/dccp/)
@@ -43,9 +43,9 @@ $$
 
 where $o$ (the objective), $l_i$ (left-hand sides), and $r_i$ (right-hand sides) are expressions (functions
 in the variable $x$) with curvature known from the DCP composition rules, and $\sim$ denotes one of the
-relational operators `==`, `<=`, or `>=`.
+relational operators $==$, $<=$, or $>=$.
 
-In a disciplined convex program, the curvatures of `o`, `l_i`, and `r_i` are restricted to ensure that the problem is convex. For example, if the objective is `maximize o(x)`, then `o` must be concave according to the DCP composition rules. In a disciplined convex-concave program, by contrast, the objective and right and left-hand sides of the constraints can have any curvature, so long as all expressions satisfy the DCP composition rules.
+In a disciplined convex program, the curvatures of $o$, $l_i$, and $r_i$ are restricted to ensure that the problem is convex. For example, if the objective is $\text{maximize} \, o(x)$, then $o$ must be concave according to the DCP composition rules. In a disciplined convex-concave program, by contrast, the objective and right and left-hand sides of the constraints can have any curvature, so long as all expressions satisfy the DCP composition rules.
 
 The variables, parameters, and constants in DCCP should be real numbers. Problems containing complex numbers may not be supported by DCCP.
 
@@ -94,6 +94,8 @@ result = myprob.solve(method='dccp')
 By first clearing the variable values using `x.value = None` and `y.value = None`, the CCP algorithm will use random initial values.
 
 Setting the parameter `k_ccp` specifies the number of times that the CCP algorithm runs, starting from random initial values for all variables. The best solution found is returned.
+
+For all available parameters, see the [documentation](https://www.cvxpy.org/dccp/).
 
 ## License
 
