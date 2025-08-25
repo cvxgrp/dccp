@@ -27,13 +27,13 @@ pip install -e .
 You can verify the installation by running a simple example:
 
 ```python
-import cvxpy as cvx
+import cvxpy as cp
 import dccp
 
 # create a simple problem
-x = cvx.Variable(2)
-y = cvx.Variable(2)
-problem = cvx.Problem(cvx.Maximize(cvx.norm(x - y, 2)), [0 <= x, x <= 1, 0 <= y, y <= 1])
+x = cp.Variable(2)
+y = cp.Variable(2)
+problem = cp.Problem(cp.Maximize(cp.norm(x - y, 2)), [0 <= x, x <= 1, 0 <= y, y <= 1])
 
 # check if it's DCCP
 print("Problem is DCCP:", dccp.is_dccp(problem))

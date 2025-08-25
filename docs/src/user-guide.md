@@ -26,12 +26,12 @@ The variables, parameters, and constants in DCCP should be real numbers. Problem
 The following code uses DCCP to approximately solve a simple nonconvex problem.
 
 ```python
-import cvxpy as cvx
+import cvxpy as cp
 import dccp
 
-x = cvx.Variable(2)
-y = cvx.Variable(2)
-myprob = cvx.Problem(cvx.Maximize(cvx.norm(x - y, 2)), [0 <= x, x <= 1, 0 <= y, y <= 1])
+x = cp.Variable(2)
+y = cp.Variable(2)
+myprob = cp.Problem(cp.Maximize(cp.norm(x - y, 2)), [0 <= x, x <= 1, 0 <= y, y <= 1])
 print("problem is DCP:", myprob.is_dcp())   # False
 print("problem is DCCP:", dccp.is_dccp(myprob))  # True
 result = myprob.solve(method='dccp')

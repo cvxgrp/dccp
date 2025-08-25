@@ -24,12 +24,12 @@ The DCCP solver accepts various parameters to control the algorithm behavior:
 You can pass these parameters to the solve method like so:
 
 ```python
-import cvxpy as cvx
+import cvxpy as cp
 import dccp
 
 # create your problem
-x = cvx.Variable(2)
-problem = cvx.Problem(cvx.Maximize(cvx.norm(x, 2)), [cvx.norm(x, 1) <= 1])
+x = cp.Variable(2)
+problem = cp.Problem(cp.Maximize(cp.norm(x, 2)), [cp.norm(x, 1) <= 1])
 
 # solve with custom parameters
 result = problem.solve(
