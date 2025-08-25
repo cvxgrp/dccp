@@ -198,7 +198,7 @@ class TestDccpFunction:
         result = dccp(
             prob,
             max_iter=50,
-            tau=0.01,
+            tau_ini=0.01,
             mu=1.5,
             tau_max=1000,
             ep=1e-4,
