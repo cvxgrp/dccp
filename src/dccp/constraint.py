@@ -1,4 +1,4 @@
-"""DCCP package."""
+"""Constraint convexification for DCCP problems."""
 
 from dataclasses import dataclass
 
@@ -9,18 +9,47 @@ from dccp.linearize import linearize
 
 @dataclass
 class ConvexConstraint:
-    """A class to represent a convex constraint."""
+    """A class to represent a convex constraint with domain constraints.
+
+    Attributes
+    ----------
+    constr : cp.Constraint
+        The convexified constraint.
+    domain : list[cp.Constraint]
+        Additional domain constraints from linearization.
+
+    """
 
     constr: cp.Constraint
     domain: list[cp.Constraint]
 
 
 def convexify_constr(constr: cp.Constraint) -> ConvexConstraint | None:
-    """Convexify a constraint.
+    """Convexify a constraint for DCCP problems.
 
-    for a dcp constraint, return itself;
-    for a non-dcp constraint, return a convexified constraint and domain constraints;
-    return None if non-sub/super-diff
+    For DCP constraints, returns the constraint unchanged.
+    For non-DCP constraints, linearizes the appropriate sides and returns
+    a convexified constraint along with any domain constraints.
+
+    Parameters
+    ----------
+    constr : cp.Constraint
+        The constraint to convexify.
+
+    Returns
+    -------
+    ConvexConstraint or None
+        A ConvexConstraint object containing the convexified constraint and
+        domain constraints, or None if linearization fails.
+
+    Notes
+    -----
+    The function handles constraints by:
+    - If the constraint is already DCP, return it unchanged
+    - If the left side is concave, linearize it
+    - If the right side is convex, linearize it
+    - Collect domain constraints from linearization
+
     """
     if constr.is_dcp():
         return ConvexConstraint(constr, [])

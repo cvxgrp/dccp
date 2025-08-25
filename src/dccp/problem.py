@@ -1,4 +1,4 @@
-"""DCCP package."""
+"""DCCP solver implementation for Disciplined Convex-Concave Programming."""
 
 import logging
 from dataclasses import dataclass, field
@@ -65,7 +65,44 @@ class DCCPIter:
 
 
 class DCCP:
-    """Implementation of the DCCP algorithm."""
+    """Implementation of the DCCP (Disciplined Convex-Concave Programming) algorithm.
+
+    The DCCP class provides a systematic approach to solving nonconvex optimization
+    problems that satisfy the DCCP rules. It uses an iterative convex-concave
+    procedure (CCP) to find approximate solutions.
+
+    Parameters
+    ----------
+    prob : cp.Problem
+        A CVXPY Problem that satisfies DCCP rules but not DCP rules.
+    settings : DCCPSettings, optional
+        Configuration settings for the DCCP algorithm. If None, default
+        settings are used.
+    **kwargs
+        Additional keyword arguments passed to the underlying solver.
+
+    Attributes
+    ----------
+    is_maximization : bool
+        True if the original problem is a maximization problem.
+    prob_in : cp.Problem
+        The original input problem.
+    solve_args : dict
+        Solver arguments passed to subproblems.
+    conf : DCCPSettings
+        Algorithm configuration settings.
+    tau : cp.Parameter
+        Penalty parameter for constraint violations.
+    iter : DCCPIter
+        Current iteration state and results.
+
+    Raises
+    ------
+    NonDCCPError
+        If the problem is DCP compliant (should use standard solvers) or
+        if the problem doesn't satisfy DCCP rules.
+
+    """
 
     def __init__(
         self,
@@ -74,7 +111,18 @@ class DCCP:
         settings: DCCPSettings | None = None,
         **kwargs: Any,
     ) -> None:
-        """Initialize the DCCP solver."""
+        """Initialize the DCCP solver.
+
+        Parameters
+        ----------
+        prob : cp.Problem
+            A CVXPY Problem that satisfies DCCP rules.
+        settings : DCCPSettings, optional
+            Configuration settings for the algorithm.
+        **kwargs
+            Additional solver arguments.
+
+        """
         if settings is None:
             settings = DCCPSettings()
         if prob.is_dcp():
@@ -320,7 +368,60 @@ def dccp(  # noqa: PLR0913
     verify_dccp: bool = True,
     **kwargs: Any,
 ) -> float:
-    """Run the DCCP algorithm on the given problem."""
+    """Run the DCCP algorithm on the given problem.
+
+    This is the main entry point for solving DCCP problems. It creates a DCCP
+    solver instance with the specified settings and solves the problem.
+
+    Parameters
+    ----------
+    prob : cp.Problem
+        A CVXPY Problem that satisfies DCCP rules.
+    max_iter : int, default=100
+        Maximum number of iterations in the CCP algorithm.
+    tau_ini : float, default=0.005
+        Initial value for tau parameter (trades off constraints vs objective).
+    mu : float, default=1.2
+        Rate at which tau increases during the algorithm.
+    tau_max : float, default=1e8
+        Upper bound for tau parameter.
+    k_ccp : int, default=1
+        Number of random restarts for the CCP algorithm.
+    max_slack : float, default=1e-3
+        Maximum slack variable value for convergence.
+    ep : float, default=1e-5
+        Convergence tolerance for objective value changes.
+    seed : int, optional
+        Random seed for reproducible results.
+    verify_dccp : bool, default=True
+        Whether to verify DCCP compliance before solving.
+    **kwargs
+        Additional keyword arguments passed to the underlying solver.
+
+    Returns
+    -------
+    float
+        The optimal objective value (or best found value if not converged).
+
+    Raises
+    ------
+    NonDCCPError
+        If the problem doesn't satisfy DCCP rules or is already DCP compliant.
+
+    See Also
+    --------
+    DCCP : The main DCCP solver class for more advanced usage.
+    DCCPSettings : Configuration object for algorithm parameters.
+
+    Examples
+    --------
+    >>> import cvxpy as cp
+    >>> import dccp
+    >>> x = cp.Variable(2)
+    >>> problem = cp.Problem(cp.Maximize(cp.norm(x, 2)), [cp.norm(x, 1) <= 1])
+    >>> result = dccp.dccp(problem, max_iter=50, k_ccp=3)
+
+    """
     logger.debug("Running DCCP with solver=%s, kwargs=%s", kwargs.get("solver"), kwargs)
     dccp_solver = DCCP(
         prob,

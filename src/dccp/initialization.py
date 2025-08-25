@@ -29,8 +29,8 @@ def initialize(  # noqa: PLR0913
     k_ini : int, default=1
         Number of random projections for each variable. Higher values may
         lead to better initialization but increase computation time.
-    random : int, default=0
-        If non-zero, forces random initial values for all variables,
+    random : bool, default=False
+        If True, forces random initial values for all variables,
         overriding any user-provided initial values.
     seed : int or None, default=None
         Random seed for reproducible initialization. If None, uses
@@ -50,18 +50,6 @@ def initialize(  # noqa: PLR0913
     None
         This function modifies the problem variables in-place by setting
         their `.value` attributes.
-
-    Notes
-    -----
-    The initialization process works by:
-    1. Collecting domain constraints from the objective and constraints
-    2. For each variable without user-provided values (or if random=True),
-       creating a least-squares problem to find values close to random points
-    3. Solving multiple initialization subproblems and averaging the results
-    4. Setting the averaged values as initial points for the variables
-
-    The random initialization uses standard normal distribution scaled by `std`.
-    Variables with user-provided initial values are preserved unless random=True.
 
     """
     rng = np.random.default_rng(seed)

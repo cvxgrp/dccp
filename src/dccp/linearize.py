@@ -9,11 +9,16 @@ from dccp.utils import ORDER
 def linearize(expr: cp.Expression) -> cp.Expression | None:
     """Return the tangent approximation to the expression.
 
-    linearize non-convex CVXPY expressions using first-order Taylor expansion around
+    Linearize non-convex CVXPY expressions using first-order Taylor expansion around
     given points. The linearization approximates a function:
-    f(x) ≈ f(x₀) + ∇f(x₀)ᵀ(x - x₀).
-         = (f(x₀) - ∇f(x₀)ᵀx₀) + ∇f(x₀)ᵀx
-         = (  cp.Parameter   ) + (cp.Parameter)ᵀ @ x
+
+    .. math::
+        f(x) ≈ f(x₀) + ∇f(x₀)ᵀ(x - x₀)
+
+    Which can be rewritten as:
+
+    .. math::
+        f(x) = (f(x₀) - ∇f(x₀)ᵀx₀) + ∇f(x₀)ᵀx
 
     Parameters
     ----------
@@ -29,12 +34,6 @@ def linearize(expr: cp.Expression) -> cp.Expression | None:
     ------
     ValueError
         If the expression is non-affine and has missing variable values.
-
-    Notes
-    -----
-    This function computes the first-order Taylor approximation of the given
-    expression around the current variable values. The linearization is exact
-    for affine expressions.
 
     """
     expr_str = f"Affected expression [{expr.name()}]: {expr}."

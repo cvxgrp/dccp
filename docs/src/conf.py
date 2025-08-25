@@ -156,8 +156,8 @@ html_logo = "_static/cvxlogo-transparent.png"
 html_favicon = "_static/favicon.ico"
 
 # autodoc options for napoleon
-napoleon_google_docstring = True
-napoleon_numpy_docstring = False
+napoleon_google_docstring = False
+napoleon_numpy_docstring = True
 napoleon_include_init_with_doc = False
 napoleon_include_private_with_doc = True
 napoleon_include_special_with_doc = True
@@ -167,6 +167,17 @@ napoleon_use_admonition_for_references = False
 napoleon_use_ivar = False
 napoleon_use_param = True
 napoleon_use_rtype = False
+
+# autodoc configuration
+autodoc_default_options = {
+    "members": True,
+    "undoc-members": True,
+    "show-inheritance": True,
+    "member-order": "bysource",
+}
+
+# suppress warnings about duplicate object descriptions
+suppress_warnings = ["autodoc.duplicate_object"]
 
 # paths that contain custom static files (such as style sheets)
 html_static_path = ["_static"]
