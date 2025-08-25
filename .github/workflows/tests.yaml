@@ -12,13 +12,19 @@ env:
 
 jobs:
   pytest:
-    name: Python ${{ matrix.python-version }}
+    name: Py${{ matrix.python-version }} - CVXPY ${{ matrix.cvxpy-version }}
     runs-on: ubuntu-latest
     strategy:
       matrix:
         python-version:
+          - "3.11"
           - "3.12"
           - "3.13"
+        cvxpy-version:
+          - "1.4.4"
+          - "1.5.4"
+          - "1.6.7"
+          - "latest"
     steps:
       - name: ⤵️ Check out code from GitHub
         uses: actions/checkout@v4.2.2
@@ -29,12 +35,19 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: 🏗 Install dependencies
         run: uv sync --group dev
+      - name: 🏗 Install specific CVXPY version
+        run: |
+          if [ "${{ matrix.cvxpy-version }}" = "latest" ]; then
+            uv add --upgrade cvxpy
+          else
+            uv add "cvxpy==${{ matrix.cvxpy-version }}"
+          fi
       - name: 🚀 Run pytest
-        run: uv run pytest --cov package tests
+        run: uv run pytest --cov src/dccp tests
       - name: ⬆️ Upload coverage artifact
         uses: actions/upload-artifact@v4.6.2
         with:
-          name: coverage-${{ matrix.python-version }}
+          name: py${{ matrix.python-version }}-cvxpy${{ matrix.cvxpy-version }}
           include-hidden-files: true
           path: .coverage
 
@@ -57,9 +70,7 @@ jobs:
         run: uv sync
       - name: 🚀 Process coverage results
         run: |
-          uv run coverage combine coverage*/.coverage*
+          uv run coverage combine cov*/.coverage*
           uv run coverage xml -i
       - name: 🚀 Upload coverage report
         uses: codecov/codecov-action@v5.4.3
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
