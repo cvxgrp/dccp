@@ -82,8 +82,13 @@ print(f"Optimal value: {result}")
 DCCP is designed for optimization problems where:
 
 - The objective or constraints are nonconvex
-- All expressions have known curvature (not "UNKNOWN")
 - You need approximate solutions to NP-hard problems
+- All expressions have known curvature (not "UNKNOWN")\*
+
+\* some problems with unknown curvature can still be solved using DCCP. This requires
+CVXPY version `1.7.2` or later. To enable solving such problems we must also disable
+DCCP checks by setting `verify_dccp` parameter to `False` in the `solve` method. See
+[Settings](settings.md) for details.
 
 ---
 

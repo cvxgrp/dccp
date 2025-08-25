@@ -17,7 +17,7 @@ The DCCP solver accepts various parameters to control the algorithm behavior:
 | `ep` | `float` | Convergence tolerance for objective value changes | $(0, \infty)$ | 1e-5 |
 | `std` | `float` | Standard deviation for random variable initialization | $(0, \infty)$ | 10.0 |
 | `seed` | `int \| None` | Random seed for reproducible results | $\mathbb{Z} \cup \{\text{None}\}$ | None |
-| `verify_dccp` | `bool` | Whether to verify DCCP compliance before solving | $\{0, 1\}$ | 1 |
+| `verify_dccp` | `bool` | Whether to verify DCCP compliance before solving. Enables solving problems with `UNKNOWN` curvature | $\{0, 1\}$ | 1 |
 
 ## Parameter Usage
 
