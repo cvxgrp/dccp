@@ -1,4 +1,4 @@
-# DCCP Settings
+# Settings
 
 ## Solve Method Parameters
 

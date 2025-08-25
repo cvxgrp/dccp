@@ -82,10 +82,27 @@ extensions = [
     "nbsphinx",
 ]
 
+# MyST parser configuration
+myst_enable_extensions = [
+    "dollarmath",
+    "amsmath",
+    "deflist",
+    "html_admonition",
+    "html_image",
+    "colon_fence",
+    "smartquotes",
+    "replacements",
+    "substitution",
+    "tasklist",
+]
+
+# enable dollar math for inline and display math
+myst_dmath_double_inline = True
+
 source_suffix = [".md"]
 master_doc = "index"
-project = "cvxpylayers"
-copyright = "The cvxpylayers authors"  # noqa: A001
+project = "dccp"
+copyright = "The dccp authors"  # noqa: A001
 version = ".".join(__version__.split(".")[:2])
 release = __version__
 
@@ -117,20 +134,20 @@ html_theme_options = {
         "announce.dismiss",
     ],
     "toc_title": "On this page",
-    "repo_url": "https://github.com/langestefan/cvx-package-template",
-    "repo_name": "cvx-template",
+    "repo_url": "https://github.com/cvxgrp/dccp",
+    "repo_name": "cvxgrp/dccp",
     "icon": {
         "repo": "fontawesome/brands/github",
     },
     "social": [
         {
             "icon": "fontawesome/brands/github",
-            "link": "https://github.com/langestefan/cvx-package-template",
+            "link": "https://github.com/cvxgrp/dccp",
             "name": "Source on github.com",
         },
         {
             "icon": "fontawesome/brands/python",
-            "link": "https://github.com/langestefan/cvx-package-template",
+            "link": "https://github.com/cvxgrp/dccp",
         },
     ],
 }

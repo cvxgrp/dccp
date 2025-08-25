@@ -1,6 +1,9 @@
 # Examples
 
-This page contains examples demonstrating the capabilities of this package.
+This page contains some self-contained examples to demonstrate possible usecases of the
+DCCP algorithm. The notebook source files are also available on GitHub at [dccp/examples](https://github.com/cvxgrp/dccp/tree/master/examples).
+
+These examples are also discussed in the [DCCP paper](https://stanford.edu/~boyd/papers/dccp.html).
 
 ```{toctree}
 ---
