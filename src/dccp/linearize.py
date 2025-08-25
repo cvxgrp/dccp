@@ -10,15 +10,13 @@ def linearize(expr: cp.Expression) -> cp.Expression | None:
     """Return the tangent approximation to the expression.
 
     Linearize non-convex CVXPY expressions using first-order Taylor expansion around
-    given points. The linearization approximates a function:
+    given points. The linearization approximates a function by:
 
     .. math::
-        f(x) ≈ f(x₀) + ∇f(x₀)ᵀ(x - x₀)
+        f(x) ≈ f(x_0) + ∇f(x_0)^T(x - x_0)
 
-    Which can be rewritten as:
-
-    .. math::
-        f(x) = (f(x₀) - ∇f(x₀)ᵀx₀) + ∇f(x₀)ᵀx
+    Where :math:`x_0` is the point of linearization, :math:`f(x_0)` is the function
+    value at that point, and :math:`∇f(x_0)` is the gradient at that point.
 
     Parameters
     ----------
