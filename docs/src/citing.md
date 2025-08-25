@@ -1,21 +1,14 @@
-# Citing
+# Citation
 
-If you wish to cite \<package\>, please use:
+If you use DCCP in your research, please cite the paper below:
 
-## Original paper
-
-Main paper.
-
-```latex
-@article{paper2016,
-    author       = {authors},
-    title        = {title of the paper},
-    journal      = {journal name},
-    month        = {June},
+```bibtex
+@article{shen2016disciplined,
+    author       = {Xinyue Shen and Steven Diamond and Yuantao Gu and Stephen Boyd},
+    title        = {Disciplined convex-concave programming},
+    journal      = {2016 IEEE 55th Conference on Decision and Control (CDC)},
+    pages        = {1009--1014},
     year         = {2016},
-    volume       = {169},
-    number       = {3},
-    pages        = {1042-1068},
-    url          = {url to the paper},
+    url          = {https://stanford.edu/~boyd/papers/dccp.html},
 }
 ```

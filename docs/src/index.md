@@ -11,12 +11,11 @@ keywords: convex optimization, open source, software
 
 install
 user-guide
+settings
 api
 examples/index
 contributing
 changelog
-faq
-resources
 citing
 ```
 

@@ -310,7 +310,7 @@ def dccp(  # noqa: PLR0913
     prob: cp.Problem,
     *,
     max_iter: int = 100,
-    tau: float = 0.005,
+    tau_ini: float = 0.005,
     mu: float = 1.2,
     tau_max: float = 1e8,
     k_ccp: int = 1,
@@ -326,7 +326,7 @@ def dccp(  # noqa: PLR0913
         prob,
         settings=DCCPSettings(
             max_iter=max_iter,
-            tau_ini=tau,
+            tau_ini=tau_ini,
             mu=mu,
             tau_max=tau_max,
             k_ccp=k_ccp,
