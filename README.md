@@ -1,65 +1,115 @@
-# cvx-package-template
+# DCCP
 
-[![build](https://github.com/langestefan/cvx-package-template/actions/workflows/release.yaml/badge.svg)](https://github.com/langestefan/cvx-package-template/actions/workflows/build.yml)
-[![docs](https://img.shields.io/badge/docs-online-brightgreen?logo=read-the-docs&style=flat)](https://langestefan.github.io/cvx-package-template/)
-[![codecov](https://codecov.io/gh/langestefan/cvx-package-template/graph/badge.svg?token=WQKQEUOS8B)](https://codecov.io/gh/langestefan/cvx-package-template)
-[![license](https://img.shields.io/github/license/langestefan/cvx-package-template)](https://github.com/langestefan/cvx-package-template/blob/main/LICENSE)
-[![pypi](https://img.shields.io/pypi/v/cvx-package-template)](https://pypi.org/project/cvx-package-template/)
+[![build](https://github.com/cvxgrp/dccp/actions/workflows/release.yaml/badge.svg)](https://github.com/cvxgrp/dccp/actions/workflows/release.yaml)
+[![docs](https://img.shields.io/badge/docs-online-brightgreen?logo=read-the-docs&style=flat)](https://cvxgrp.github.io/dccp/)
+[![codecov](https://codecov.io/gh/cvxgrp/dccp/graph/badge.svg)](https://codecov.io/gh/cvxgrp/dccp)
+[![license](https://img.shields.io/github/license/cvxgrp/dccp)](https://github.com/cvxgrp/dccp/blob/main/LICENSE)
+[![pypi](https://img.shields.io/pypi/v/dccp)](https://pypi.org/project/dccp/)
 
-## Template instructions (to be removed)
+DCCP package provides an organized heuristic for convex-concave programming.
+It tries to solve nonconvex problems where every function in the objective and the constraints has any known curvature according to the rules of disciplined convex programming (DCP).
+For instance, DCCP can be used to maximize a convex function.
+The full details of our approach are discussed in [the associated paper](https://stanford.edu/~boyd/papers/dccp.html).
+DCCP is built on top of [CVXPY](http://www.cvxpy.org/), a domain-specific language for convex optimization embedded in Python.
 
-This is a template for creating packages in the cvxpy ecosystem. It provides a basic
-structure and configuration for a Python package, including:
+## Installation
 
-- A `pyproject.toml` file for package metadata and dependencies.
-- A `tests` directory for unit tests using `pytest` and `pytest-cov` for coverage
-reporting.
-- A `docs` directory for documentation using Sphinx.
-- A `examples` directory for example usage of the package, which will be displayed in
-the documentation.
-- Linting and formatting using `ruff`.
-- Pre-commit hooks using `pre-commit` to ensure code quality before committing changes.
+You should first install [CVXPY 1.5](http://www.cvxpy.org/) or greater.
 
-## Running tests
-
-To be able to run unit tests with [uv](https://github.com/astral-sh/uv) you will need:
+You can install the latest DCCP package via pip:
 
 ```bash
-uv sync --group dev
+pip install dccp
 ```
 
-You can then run the tests using:
+To install the development version, clone this repository and install in development mode:
 
 ```bash
-uv run pytest tests
+git clone https://github.com/cvxgrp/dccp.git
+cd dccp
+pip install -e .
 ```
 
-Alternatively, with `pip` you can install the `dev` dependencies and run the tests using:
+## DCCP Rules
 
-```bash
-pip install -e .[dev]
-pytest tests
+A problem satisfies the rules of disciplined convex-concave programming (DCCP) if it has the form
+
+$$
+\begin{align}
+\text{minimize/maximize} \quad & o(x) \\
+\text{subject to} \quad & l_i(x) \sim r_i(x), \quad i=1,\ldots,m,
+\end{align}
+$$
+
+where $o$ (the objective), $l_i$ (left-hand sides), and $r_i$ (right-hand sides) are expressions (functions
+in the variable $x$) with curvature known from the DCP composition rules, and $\sim$ denotes one of the
+relational operators `==`, `<=`, or `>=`.
+
+In a disciplined convex program, the curvatures of `o`, `l_i`, and `r_i` are restricted to ensure that the problem is convex. For example, if the objective is `maximize o(x)`, then `o` must be concave according to the DCP composition rules. In a disciplined convex-concave program, by contrast, the objective and right and left-hand sides of the constraints can have any curvature, so long as all expressions satisfy the DCP composition rules.
+
+The variables, parameters, and constants in DCCP should be real numbers. Problems containing complex numbers may not be supported by DCCP.
+
+## Example
+
+The following code uses DCCP to approximately solve a simple nonconvex problem.
+
+```python
+import cvxpy as cvx
+import dccp
+
+x = cvx.Variable(2)
+y = cvx.Variable(2)
+myprob = cvx.Problem(cvx.Maximize(cvx.norm(x - y, 2)), [0 <= x, x <= 1, 0 <= y, y <= 1])
+print("problem is DCP:", myprob.is_dcp())   # False
+print("problem is DCCP:", dccp.is_dccp(myprob))  # True
+result = myprob.solve(method='dccp', seed=3)
+print("x =", x.value.round(3))
+print("y =", y.value.round(3))
+print("cost value =", result)
 ```
 
-## Building documentation locally
+The output of the above code is as follows.
 
-To build and run the documentation locally using `sphinx-autobuild`,
-you need to first install dependencies using the following commands:
-
-```bash
-uv sync --group dev --group doc
-uv run sphinx-autobuild docs/src docs/_build/html
+```text
+problem is DCP: False
+problem is DCCP: True
+x = [1. 0.]
+y = [0.  1.]
+cost value = 1.4142135623730951
 ```
 
-Alternatively, with `pip` you can install the `dev` and `doc` dependencies and run the documentation using:
+The solutions obtained by DCCP can depend on the initial point of the CCP algorithm.
+The algorithm starts from the values of any variables that are already specified; for any that are not specified, random values are used.
+You can specify an initial value manually by setting the `value` field of the variable.
+For example, the following code runs the CCP algorithm with the specified initial values for `x` and `y`:
 
-```bash
-pip install -e .[dev,doc]
-sphinx-autobuild docs/src docs/_build/html
+```python
+import numpy
+
+x.value = numpy.array([1, 2])
+y.value = numpy.array([-1, 1])
+result = myprob.solve(method='dccp')
 ```
 
-## Repository description goes here.
+By first clearing the variable values using `x.value = None` and `y.value = None`, the CCP algorithm will use random initial values.
 
-The full documentation is available [here](https://www.cvxgrp.org/repository/).
+Setting the parameter `k_ccp` specifies the number of times that the CCP algorithm runs, starting from random initial values for all variables. The best solution found is returned.
 
-If you wish to cite repository please cite the papers listed [here](https://www.cvxgrp.org/repository/citing).
+## License
+
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+
+## Citation
+
+If you wish to cite DCCP, please cite the DCCP papers listed in our [citation guide](https://www.cvxgrp.org/dccp/citing) or copy the text below.
+
+```bibtex
+@article{shen2016disciplined,
+    author       = {Xinyue Shen and Steven Diamond and Yuantao Gu and Stephen Boyd},
+    title        = {Disciplined convex-concave programming},
+    journal      = {2016 IEEE 55th Conference on Decision and Control (CDC)},
+    pages        = {1009--1014},
+    year         = {2016},
+    url          = {https://stanford.edu/~boyd/papers/dccp.html},
+}
+```
