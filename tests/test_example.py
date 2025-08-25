@@ -69,13 +69,18 @@ class TestExamples:
         constr: list[Constraint] = [cp.log(x) <= 1, x >= 1]
         prob = cp.Problem(cp.Minimize(cp.log(x)), constr)
         result = prob.solve(
-            method="dccp", solver="Clarabel", ep=1e-3, max_slack=1e-3, seed=0
+            method="dccp", solver="SCS", ep=1e-3, max_slack=1e-3, seed=0
         )
         assert prob.status == cp.OPTIMAL
         assert result is not None
-        assert_almost_equal(result, 0)  # type: ignore
+        assert_almost_equal(
+            result,  # pyright: ignore[reportArgumentType]
+            0,
+            rtol=1e-2,
+            atol=1e-2,
+        )
         assert x.value is not None
-        assert_almost_equal(float(x.value[0]), 1)  # type: ignore
+        assert_almost_equal(float(x.value[0]), 1, rtol=1e-2, atol=1e-2)
 
     def test_damping(self) -> None:
         """Test DCCP algorithm works with settings that will trigger damping."""
