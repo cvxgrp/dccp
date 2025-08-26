@@ -76,7 +76,7 @@ For detailed information about all available parameters, see the [DCCP Settings]
 
 ## Result Status
 
-After running the solve method, the result status is stored in `problem.status`. The status `"optimal"` means that the algorithm has converged, i.e., the slack variables converge to 0, and changes in the objective value are small enough. The obtained solution is at least a feasible point, but it is not guaranteed to be globally optimum. Any other status indicates that the algorithm has not converged.
+After running the solve method, the result status is stored in `problem.status`. The status `"optimal"` means that the algorithm has converged, i.e., the slack variables converge to 0, and changes in the objective value are small enough. The obtained solution is at least a feasible point, but it is not guaranteed to be a global optimum. Any other status indicates that the algorithm has not converged.
 
 ## Utility Functions and Attributes
 
