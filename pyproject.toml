@@ -13,7 +13,10 @@ authors = [
     { name = "Steven Diamond" },
     { name = "Stephen Boyd" },
 ]
-maintainers = [{ name = "My Name", email = "myname@place.com" }]
+maintainers = [
+    { name = "Parth Nobel", email = "parthnobel@berkeley.edu" },
+    { name = "Stefan de Lange", email = "langestefan@msn.com" },
+]
 requires-python = ">=3.12"
 dependencies = ["cvxpy>=1.5.4"]
 keywords = ["convex optimization", "cvxpy", "mathematical programming"]
