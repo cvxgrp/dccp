@@ -150,10 +150,7 @@ class DCCP:
         init_kwargs["solver"] = kwargs.get("solver")
 
         initialize(prob, **init_kwargs)
-        self.iter = DCCPIter(
-            prob=prob,  # Use the original problem initially
-            tau=self.tau,
-        )
+        self.iter = DCCPIter(prob=prob, tau=self.tau)
 
         self._prev_var_values = {}
         self._store_previous_values()

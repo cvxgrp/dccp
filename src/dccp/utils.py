@@ -84,23 +84,6 @@ class NonDCCPError(Exception):
         super().__init__(message)
 
 
-def is_obj_dccp(objective: cp.Minimize | cp.Maximize) -> bool:
-    """Check if an objective function satisfies DCCP rules.
-
-    Parameters
-    ----------
-    objective : cp.Minimize or cp.Maximize
-        The objective function to check.
-
-    Returns
-    -------
-    bool
-        True if the objective has known curvature, False otherwise.
-
-    """
-    return objective.expr.curvature != "UNKNOWN"
-
-
 def is_dccp(problem: cp.Problem) -> bool:
     """Check if a CVXPY problem is DCCP compliant.
 
@@ -125,7 +108,7 @@ def is_dccp(problem: cp.Problem) -> bool:
     2. All constraint arguments have known curvature (not "UNKNOWN")
 
     """
-    if not is_obj_dccp(problem.objective):
+    if problem.objective.expr.curvature == "UNKNOWN":
         return False
 
     # check DCCP compliance for each argument of each constraint individually
