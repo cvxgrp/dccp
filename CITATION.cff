@@ -1,12 +1,33 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
 authors:
-  - family-names: Newton
-    given-names: Isaac
-    orcid: https://orcid.org/1234-5678-9101-1121
-title: "My Research Software"
-version: 2.0.4
-identifiers:
-  - type: doi
-    value: 10.5281/zenodo.1234
-date-released: 2021-08-11
+  - family-names: "Shen"
+    given-names: "Xinyue"
+  - family-names: "Diamond"
+    given-names: "Steven"
+  - family-names: "Gu"
+    given-names: "Yuantao"
+  - family-names: "Boyd"
+    given-names: "Stephen"
+title: "Disciplined convex-concave programming"
+date-released: 2016-12-01
+url: "https://github.com/cvxgrp/dccp"
+preferred-citation:
+  type: conference-paper
+  title: "Disciplined convex-concave programming"
+  authors:
+    - family-names: "Shen"
+      given-names: "Xinyue"
+    - family-names: "Diamond"
+      given-names: "Steven"
+    - family-names: "Gu"
+      given-names: "Yuantao"
+    - family-names: "Boyd"
+      given-names: "Stephen"
+  doi: "10.1109/CDC.2016.7798400"
+  collection-title: "2016 IEEE 55th Conference on Decision and Control (CDC)"
+  month: 12
+  start: 1009
+  end: 1014
+  year: 2016
+  url: "https://stanford.edu/~boyd/papers/dccp.html"
