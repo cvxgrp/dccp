@@ -4,7 +4,6 @@ import logging
 from dataclasses import dataclass
 
 import cvxpy as cp
-import numpy as np
 
 ORDER = "F"
 
@@ -83,32 +82,6 @@ class NonDCCPError(Exception):
 
         """
         super().__init__(message)
-
-
-@dataclass
-class DCCPIter:
-    """Dataclass to hold DCCP iteration results.
-
-    This class is used internally by the DCCP algorithm to track
-    the state and results of each iteration.
-
-    Attributes
-    ----------
-    prob : cp.Problem
-        The current convexified subproblem.
-    cost : float, default=np.inf
-        The objective value of the current iteration.
-    slack : float, default=np.inf
-        The maximum slack variable value.
-
-    """
-
-    prob: cp.Problem
-    cost: float = np.inf
-    slack: float = np.inf
-
-    def __post_init__(self) -> None:
-        """Post-initialization hook for dataclass."""
 
 
 def is_obj_dccp(objective: cp.Minimize | cp.Maximize) -> bool:
