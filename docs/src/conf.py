@@ -132,6 +132,7 @@ html_theme_options = {
         "search.share",
         "content.tabs.link",
         "announce.dismiss",
+        "content.code.copy",
     ],
     "toc_title": "On this page",
     "repo_url": "https://github.com/cvxgrp/dccp",
