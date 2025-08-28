@@ -46,7 +46,7 @@ class DCCPIter:
         )
 
     @property
-    def cost_ns(self) -> float:
+    def cost_no_slack(self) -> float:
         """Objective value minus τ * sum(slack)."""
         if self.prob.objective.value is None:
             return np.inf
@@ -251,27 +251,31 @@ class DCCP:
         """Solve the DCCP problem."""
         converged = False
         prev_cost = np.inf
-        prev_cost_ns = np.inf
+        prev_cost_no_slack = np.inf
 
         # run DCCP iterations until convergence or max iterations
         while not (converged or self.iter.k > self.conf.max_iter):
             self._construct_subproblem()
             new_cost = self.iter.solve(**self.solve_args)
-            new_cost_ns = self.iter.cost_ns
+            new_cost_no_slack = self.iter.cost_no_slack
             slack = self.iter.slack
 
             # check all convergence criteria
             if (
                 new_cost is not None
                 and np.abs(prev_cost - new_cost) <= self.conf.ep
-                and np.abs(prev_cost_ns - new_cost_ns) <= self.conf.ep
+                and np.abs(prev_cost_no_slack - new_cost_no_slack) <= self.conf.ep
                 and slack <= self.conf.max_slack
             ):
                 converged = True
 
             # update previous values
             prev_cost = new_cost if new_cost is not None else prev_cost
-            prev_cost_ns = new_cost_ns if new_cost_ns is not None else prev_cost_ns
+            prev_cost_no_slack = (
+                new_cost_no_slack
+                if new_cost_no_slack is not None
+                else prev_cost_no_slack
+            )
 
             # update tau for the next iteration
             if self.iter.tau.value is not None:
@@ -279,10 +283,10 @@ class DCCP:
                 self.iter.tau.value = min(self.conf.tau_max, tau_mul)
 
             logger.debug(
-                "Iteration %d: cost=%s, cost_ns=%s, slack=%s, tau=%s",
+                "Iteration %d: cost=%s, cost_no_slack=%s, slack=%s, tau=%s",
                 self.iter.k,
                 self.iter.cost,
-                self.iter.cost_ns,
+                self.iter.cost_no_slack,
                 self.iter.slack,
                 self.iter.tau.value,
             )
@@ -297,7 +301,6 @@ class DCCP:
                 var.value = self.iter.prob.var_dict[var.name()].value
             return self.iter.cost
 
-        # return the objective value
         return self.iter.cost if converged else np.inf
 
     def __call__(self) -> float:

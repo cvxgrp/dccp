@@ -82,8 +82,8 @@ class TestDCCPIter:
 
         assert iter_obj.slack_sum == 1.5
 
-    def test_cost_ns_property(self) -> None:
-        """Test cost_ns property (objective value minus tau * sum(slack))."""
+    def test_cost_no_slack_property(self) -> None:
+        """Test cost_no_slack property (objective value minus tau * sum(slack))."""
         x = cp.Variable(1)
         prob = cp.Problem(cp.Minimize(x**2), [x >= 0])
         x.value = np.array([2.0])
@@ -95,16 +95,16 @@ class TestDCCPIter:
         iter_obj = DCCPIter(prob=prob, tau=tau, vars_slack=[slack1])
         obj_val = prob.objective.value
         assert obj_val is not None
-        expected_cost_ns = float(obj_val) - 0.01 * 1.0  # type: ignore
-        assert abs(iter_obj.cost_ns - expected_cost_ns) < 1e-6
+        expected_cost_no_slack = float(obj_val) - 0.01 * 1.0  # type: ignore
+        assert abs(iter_obj.cost_no_slack - expected_cost_no_slack) < 1e-6
 
-    def test_cost_ns_with_none_objective(self) -> None:
-        """Test cost_ns property when objective value is None."""
+    def test_cost_no_slack_with_none_objective(self) -> None:
+        """Test cost_no_slack property when objective value is None."""
         x = cp.Variable(1)
         prob = cp.Problem(cp.Minimize(x**2), [x >= 0])
         iter_obj = DCCPIter(prob=prob)
 
-        assert iter_obj.cost_ns == np.inf
+        assert iter_obj.cost_no_slack == np.inf
 
     def test_solve_method(self) -> None:
         """Test the solve method of DCCPIter."""
