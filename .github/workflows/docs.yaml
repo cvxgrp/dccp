@@ -2,8 +2,10 @@
 name: deploy-docs
 
 on:
-  push: {}
-  workflow_dispatch:
+  # run when a new commit is pushed to master
+  push: {branches: [master]}
+  # run when triggered manually
+  workflow_dispatch: {}
 
 permissions:
   contents: read
@@ -37,7 +39,7 @@ jobs:
         run: uv sync --group doc
       - name: 🚀 Test notebooks
         run: >
-          uv run pytest --nbmake --overwrite -n=auto --override-ini="addopts="
+          uv run pytest --nbmake --overwrite --override-ini="addopts="
           examples/*ipynb
       - name: 🚀 Build Sphinx docs
         run: >
