@@ -54,7 +54,7 @@ dev = [
     "codespell==2.4.1",
     "covdefaults==2.3.0",
     "coverage[toml]==7.6.12",
-    "pre-commit==4.2.0",
+    "pre-commit==4.3.0",
     "pre-commit-hooks==5.0.0",
     "pylint==3.3.4",
     "pytest==8.4.1",
