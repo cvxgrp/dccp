@@ -34,9 +34,11 @@ jobs:
       - name: 🏗 Install pandoc
         run: sudo apt-get update && sudo apt-get install -y pandoc
       - name: 🏗 Install dependencies
-        run: uv sync --group doc --group doc-test
+        run: uv sync --group doc
       - name: 🚀 Test notebooks
-        run: uv run pytest --nbmake --overwrite -n=auto examples/*ipynb
+        run: >
+          uv run pytest --nbmake --overwrite -n=auto --override-ini="addopts="
+          examples/*ipynb
       - name: 🚀 Build Sphinx docs
         run: >
           uv run sphinx-build -W --keep-going -b html docs/src docs/_build/html
