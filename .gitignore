@@ -64,3 +64,14 @@ target/
 .DS_Store
 .idea/*
 
+# uv
+uv.lock
+*.png
+
+# autodocs
+docs/src/api
+docs/src/examples/*.ipynb
+
+# project
+_examples
+.vscode/settings.json

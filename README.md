@@ -1,99 +1,117 @@
-DCCP
-====
+# DCCP
+
+[![build](https://github.com/cvxgrp/dccp/actions/workflows/release.yaml/badge.svg)](https://github.com/cvxgrp/dccp/actions/workflows/release.yaml)
+[![docs](https://img.shields.io/badge/docs-online-brightgreen?logo=read-the-docs&style=flat)](https://www.cvxpy.org/dccp/)
+[![codecov](https://codecov.io/gh/cvxgrp/dccp/graph/badge.svg)](https://codecov.io/gh/cvxgrp/dccp)
+[![license](https://img.shields.io/github/license/cvxgrp/dccp)](https://github.com/cvxgrp/dccp/blob/main/LICENSE)
+[![pypi](https://img.shields.io/pypi/v/dccp)](https://pypi.org/project/dccp/)
 
 DCCP package provides an organized heuristic for convex-concave programming.
 It tries to solve nonconvex problems where every function in the objective and the constraints has any known curvature according to the rules of disciplined convex programming (DCP).
-For instance, DCCP can be used to maximize a convex function. 
-The full details of our approach are discussed in [the associated paper](https://stanford.edu/~boyd/papers/dccp.html). 
+For instance, DCCP can be used to maximize a convex function.
+The full details of our approach are discussed in [the associated paper](https://stanford.edu/~boyd/papers/dccp.html).
 DCCP is built on top of [CVXPY](http://www.cvxpy.org/), a domain-specific language for convex optimization embedded in Python.
 
-Installation
-------------
-You should first install [CVXPY 1.1](http://www.cvxpy.org/).
+## Installation
 
-To install the most updated DCCP, please download the repository and run ``python setup.py install`` inside.
+You should first install [CVXPY 1.5](http://www.cvxpy.org/) or greater.
 
-To install DCCP from pip, please run ``pip install dccp``.
+You can install the latest DCCP package via pip:
 
-DCCP rules
-----------
+```bash
+pip install dccp
+```
+
+To install the development version, clone this repository and install in development mode:
+
+```bash
+git clone https://github.com/cvxgrp/dccp.git
+cd dccp
+pip install -e .
+```
+
+## DCCP Rules
+
 A problem satisfies the rules of disciplined convex-concave programming (DCCP) if it has the form
-```
-minimize/maximize o(x)
-subject to  l_i(x) ~ r_i(x),  i=1,...,m,
-```
-where ``o`` (the objective), ``l_i`` (left-hand sides), and ``r_i`` (right-hand sides) are expressions (functions
-in the variable ``x``) with curvature known from the DCP composition rules, and ``∼`` denotes one of the
-relational operators ``==``, ``<=``, or ``>=``.
 
-In a disciplined convex program, the curvatures of ``o``, ``l_i``, and ``r_i`` are restricted to ensure that the problem is convex. For example, if the objective is ``maximize o(x)``, then ``o`` must be concave according to the DCP composition rules. In a disciplined convex-concave program, by contrast, the objective and right and left-hand sides of the constraints can have any curvature, so long as all expressions satisfy the DCP composition rules.
+$$
+\begin{align}
+\text{minimize/maximize} \quad & o(x) \\
+\text{subject to} \quad & l_i(x) \sim r_i(x), \quad i=1,\ldots,m,
+\end{align}
+$$
+
+where $o$ (the objective), $l_i$ (left-hand sides), and $r_i$ (right-hand sides) are expressions (functions
+in the variable $x$) with curvature known from the DCP composition rules, and $\sim$ denotes one of the
+relational operators $==$, $<=$, or $>=$.
+
+In a disciplined convex program, the curvatures of $o$, $l_i$, and $r_i$ are restricted to ensure that the problem is convex. For example, if the objective is $\text{maximize} \, o(x)$, then $o$ must be concave according to the DCP composition rules. In a disciplined convex-concave program, by contrast, the objective and right and left-hand sides of the constraints can have any curvature, so long as all expressions satisfy the DCP composition rules.
 
 The variables, parameters, and constants in DCCP should be real numbers. Problems containing complex numbers may not be supported by DCCP.
 
+## Example
 
-Example
--------
 The following code uses DCCP to approximately solve a simple nonconvex problem.
+
 ```python
-import cvxpy as cvx
+import cvxpy as cp
 import dccp
-x = cvx.Variable(2)
-y = cvx.Variable(2)
-myprob = cvx.Problem(cvx.Maximize(cvx.norm(x - y,2)), [0 <= x, x <= 1, 0 <= y, y <= 1])
-print("problem is DCP:", myprob.is_dcp())   # false
-print("problem is DCCP:", dccp.is_dccp(myprob))  # true
-result = myprob.solve(method='dccp')
-print("x =", x.value)
-print("y =", y.value)
-print("cost value =", result[0])
+
+x = cp.Variable(2)
+y = cp.Variable(2)
+myprob = cp.Problem(cp.Maximize(cp.norm(x - y, 2)), [0 <= x, x <= 1, 0 <= y, y <= 1])
+print("problem is DCP:", myprob.is_dcp())   # False
+print("problem is DCCP:", dccp.is_dccp(myprob))  # True
+result = myprob.solve(method='dccp', seed=3)
+print("x =", x.value.round(3))
+print("y =", y.value.round(3))
+print("cost value =", result)
 ```
+
 The output of the above code is as follows.
-```
+
+```text
 problem is DCP: False
 problem is DCCP: True
-x = [ 1. -0.]
-y = [-0.  1.]
+x = [1. 0.]
+y = [0.  1.]
 cost value = 1.4142135623730951
 ```
 
 The solutions obtained by DCCP can depend on the initial point of the CCP algorithm.
-The algorithm starts from the values of any variables that are already specified; for any that are not specified, random values are used. 
-You can specify an initial value manually by setting the ``value`` field of the variable.
-For example, the following code runs the CCP algorithm with the specified initial values for ``x`` and ``y``:
+The algorithm starts from the values of any variables that are already specified; for any that are not specified, random values are used.
+You can specify an initial value manually by setting the `value` field of the variable.
+For example, the following code runs the CCP algorithm with the specified initial values for `x` and `y`:
+
 ```python
+import numpy
+
 x.value = numpy.array([1, 2])
 y.value = numpy.array([-1, 1])
 result = myprob.solve(method='dccp')
 ```
-An option is to use random initialization for all variables by ``prob.solve(method=‘dccp’, random_start=TRUE)``, and by setting the parameter ``ccp_times`` you can specify the times that the CCP algorithm runs starting from random initial values for all variables each time.
 
-Constructing and solving problems
----------------------------------
-The components of the variable, the objective, and the constraints are constructed using standard CVXPY syntax. 
-Once a problem object has been constructed, the following solve method can be applied.
-* ``problem.solve(method='dccp')`` applies the CCP heuristic, and returns the value of the cost function, the maximum value of the slack variables, and the value of each variable. Additional arguments can be used to specify the parameters.
+By first clearing the variable values using `x.value = None` and `y.value = None`, the CCP algorithm will use random initial values.
 
-Solve method parameters:
-* The ``ccp_times`` parameter specifies how many random initial points to run the algorithm from. The default is 1.
-* The ``max_iter`` parameter sets the maximum number of iterations in the CCP algorithm. The default is 100.
-* The ``solver`` parameter specifies what solver to use to solve convex subproblems.
-* The ``tau`` parameter trades off satisfying the constraints and minimizing the objective. Larger ``tau`` favors satisfying the constraints. The default is 0.005.
-* The ``mu`` parameter sets the rate at which ``tau`` increases inside the CCP algorithm. The default is 1.2.
-* The ``tau_max`` parameter upper bounds how large ``tau`` can get. The default is 1e8.
+Setting the parameter `k_ccp` specifies the number of times that the CCP algorithm runs, starting from random initial values for all variables. The best solution found is returned.
 
-If the convex solver for subproblems accepts any additional keyword arguments, such as ``warm_start=True``, then you can set them in the ``problem.solve()`` function, and they will be passed to the convex solver.
+For all available parameters, see the [documentation](https://www.cvxpy.org/dccp/).
 
-Result status
-----------------
-After running the solve method, the result status is stored in ``problem.status``. 
-The status ``Converged`` means that the algorithm has converged, i.e., the slack variables converge to 0, and changes in the objective value are small enough.
-The obtained solution is at least a feasible point, but it is not guaranteed to be globally optimum.
-The status ``Not converged`` indicates that the algorithm has not converged, and specifically, if the slack variables (printed in the log) are not close to 0, then it usually indicates that some nonconvex constraint has not been satisfied.
+## License
 
-Other useful functions and attributes
-----------------
-* ``is_dccp(problem)`` returns a boolean indicating if an optimization problem satisfies DCCP rules.
-* ``linearize(expression)`` returns the linearization of a DCP expression at the point specified by ``variable.value``.
-* ``convexify_obj(objective)`` returns the convexified objective of a DCCP objective.
-* ``convexify_constr(constraint)`` returns the convexified constraint (without slack
-variables) of a DCCP constraint, and if any expression is linearized, its domain is also returned.
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+
+## Citation
+
+If you wish to cite DCCP, please cite the DCCP papers listed in our [citation guide](https://www.cvxgrp.org/dccp/citing) or copy the text below.
+
+```bibtex
+@article{shen2016disciplined,
+    author       = {Xinyue Shen and Steven Diamond and Yuantao Gu and Stephen Boyd},
+    title        = {Disciplined convex-concave programming},
+    journal      = {2016 IEEE 55th Conference on Decision and Control (CDC)},
+    pages        = {1009--1014},
+    year         = {2016},
+    url          = {https://stanford.edu/~boyd/papers/dccp.html},
+}
+```

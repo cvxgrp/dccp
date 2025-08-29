@@ -1,0 +1,154 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "dccp"
+version = "2.0.0"
+description = "A CVXPY extension for difference of convex programs."
+readme = "README.md"
+license = { text = "GPLv3" }
+authors = [
+    { name = "Xinyue Shen" },
+    { name = "Steven Diamond" },
+    { name = "Stephen Boyd" },
+]
+maintainers = [
+    { name = "Parth Nobel", email = "parthnobel@berkeley.edu" },
+    { name = "Stefan de Lange", email = "langestefan@msn.com" },
+]
+requires-python = ">=3.12"
+dependencies = ["cvxpy>=1.5.4"]
+keywords = ["convex optimization", "cvxpy", "mathematical programming"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+[project.urls]
+Homepage = "http://github.com/cvxgrp/dccp/"
+Repository = "http://github.com/cvxgrp/dccp.git"
+Documentation = "http://github.com/cvxgrp/dccp/"
+"Bug Tracker" = "http://github.com/cvxgrp/dccp/issues"
+
+[project.optional-dependencies]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/dccp"]
+
+[tool.hatch.build.targets.sdist]
+include = ["/src", "/examples", "/README.md", "/LICENSE", "/NOTICE"]
+
+[dependency-groups]
+dev = [
+    "codespell==2.4.1",
+    "covdefaults==2.3.0",
+    "coverage[toml]==7.6.12",
+    "pre-commit==4.2.0",
+    "pre-commit-hooks==5.0.0",
+    "pylint==3.3.4",
+    "pytest==8.4.1",
+    "pytest-cov==6.2.1",
+    "ruff==0.12.7",
+    "yamllint==1.35.1",
+    "ipykernel==6.30.0",
+    "nbmake>=1.5.5",
+]
+doc = [
+    "sphinx >= 8.0.0",
+    "sphinxcontrib.jquery >= 4.1.0",
+    "sphinx-inline-tabs >= 2023.4.21",
+    "sphinx-design >= 0.6.1",
+    "sphinx-immaterial >= 0.13.5",
+    "myst-parser >= 4.0.0",
+    "sphinx-autobuild>=2024.10.3",
+    "nbsphinx >= 0.9.7",
+    "matplotlib>=3.10.5",
+    "ecos>=2.0.14",
+]
+
+[tool.coverage.run]
+plugins = ["covdefaults"]
+source = ["dccp"]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 50
+omit = []
+
+[tool.pylint.MASTER]
+extension-pkg-whitelist = ["orjson"]
+ignore = ["tests"]
+
+[tool.pylint.BASIC]
+good-names = ["_", "ex", "fp", "i", "id", "j", "k", "on", "Run", "T", "A"]
+
+[tool.pylint.DESIGN]
+max-attributes = 8
+
+[tool.pylint."MESSAGES CONTROL"]
+disable = [
+    "unsubscriptable-object",
+    "too-many-locals",
+    "invalid-name",
+    "too-many-arguments",
+    "too-many-positional-arguments",
+    "too-many-instance-attributes",
+    "protected-access",
+]
+
+[tool.pylint.SIMILARITIES]
+ignore-imports = true
+
+[tool.pylint.FORMAT]
+max-line-length = 88
+
+[tool.pytest.ini_options]
+addopts = "--cov-report xml:coverage.xml --cov src/dccp --cov-fail-under 0 --cov-append -m 'not integration' --cov-report term-missing"
+pythonpath = ["src"]
+log_cli = true
+log_cli_level = "DEBUG"
+log_cli_format = "%(asctime)s [%(levelname)8s] %(message)s (%(filename)s:%(lineno)s)"
+log_cli_date_format = "%Y-%m-%d %H:%M:%S"
+testpaths = "tests"
+markers = ["integration: marks as integration test"]
+filterwarnings = [
+    "ignore:Reading from a sparse CVXPY expression via `.value` is discouraged. Use `.value_sparse` instead:RuntimeWarning",
+    "ignore:invalid value encountered",
+]
+
+[tool.ruff]
+line-length = 88
+exclude = ["examples"]
+
+[tool.ruff.lint]
+ignore = [
+    "ANN401", # Opinioated warning on disallowing dynamically typed expressions
+    "COM812", # Trailing comma missing (conflicts with formatter)
+    "D203",   # incorrect-blank-line-before-class (incompatible with D211)
+    "D213",   # multi-line-summary-second-line (incompatible with D212)
+]
+select = ["ALL"]
+
+[tool.ruff.lint.flake8-pytest-style]
+fixture-parentheses = false
+mark-parentheses = false
+
+[tool.ruff.lint.isort]
+known-first-party = ["dccp"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 25
+
+[tool.codespell]
+ignore-words-list = "fro"
