@@ -37,7 +37,7 @@ jobs:
         run: uv sync --group doc
       - name: 🚀 Test notebooks
         run: >
-          uv run pytest --nbmake --overwrite -n=auto --override-ini="addopts="
+          uv run pytest --nbmake --overwrite --override-ini="addopts="
           examples/*ipynb
       - name: 🚀 Build Sphinx docs
         run: >

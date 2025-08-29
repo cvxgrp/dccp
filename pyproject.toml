@@ -75,7 +75,6 @@ doc = [
     "nbmake==1.5.5",
     "matplotlib>=3.10.5",
     "pytest==8.4.1",
-    "pytest-xdist==3.8.0",
     "ecos>=2.0.14",
 ]
 
