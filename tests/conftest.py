@@ -6,7 +6,7 @@ from collections.abc import Generator
 import pytest
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture(autouse=False)
 def setup_debug_logging() -> Generator[None, None, None]:
     """Set up debug logging for tests without changing default module behavior."""
     dccp_logger = logging.getLogger("dccp")

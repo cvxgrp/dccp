@@ -61,8 +61,6 @@ dev = [
     "pytest-cov==6.2.1",
     "ruff==0.12.7",
     "yamllint==1.35.1",
-    "ipykernel==6.30.0",
-    "nbmake>=1.5.5",
 ]
 doc = [
     "sphinx >= 8.0.0",
@@ -73,7 +71,11 @@ doc = [
     "myst-parser >= 4.0.0",
     "sphinx-autobuild>=2024.10.3",
     "nbsphinx >= 0.9.7",
+    "ipykernel==6.30.0",
+    "nbmake==1.5.5",
     "matplotlib>=3.10.5",
+    "pytest==8.4.1",
+    "pytest-xdist==3.8.0",
     "ecos>=2.0.14",
 ]
 
@@ -152,3 +154,4 @@ max-complexity = 25
 
 [tool.codespell]
 ignore-words-list = "fro"
+skip = "pyproject.toml"
