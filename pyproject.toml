@@ -60,7 +60,7 @@ dev = [
     "pytest==8.4.1",
     "pytest-cov==6.2.1",
     "ruff==0.12.7",
-    "yamllint==1.35.1",
+    "yamllint==1.37.1",
 ]
 doc = [
     "sphinx >= 8.0.0",
