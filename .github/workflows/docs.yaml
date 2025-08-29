@@ -2,8 +2,10 @@
 name: deploy-docs
 
 on:
-  push: {}
-  workflow_dispatch:
+  # run when a new commit is pushed to master
+  push: {branches: [master]}
+  # run when triggered manually
+  workflow_dispatch: {}
 
 permissions:
   contents: read
