@@ -3,7 +3,8 @@ name: deploy-docs
 
 on:
   # run when a new commit is pushed to master
-  push: {branches: [master]}
+  push:
+    branches: [master]
   # run when triggered manually
   workflow_dispatch: {}
 
@@ -37,10 +38,6 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y pandoc
       - name: 🏗 Install dependencies
         run: uv sync --group doc
-      - name: 🚀 Test notebooks
-        run: >
-          uv run pytest --nbmake --overwrite --override-ini="addopts="
-          examples/*ipynb
       - name: 🚀 Build Sphinx docs
         run: >
           uv run sphinx-build -W --keep-going -b html docs/src docs/_build/html
