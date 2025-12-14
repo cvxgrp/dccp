@@ -17,7 +17,7 @@ maintainers = [
     { name = "Parth Nobel", email = "parthnobel@berkeley.edu" },
     { name = "Stefan de Lange", email = "langestefan@msn.com" },
 ]
-requires-python = ">=3.12"
+requires-python = ">=3.11"
 dependencies = ["cvxpy>=1.5.4"]
 keywords = ["convex optimization", "cvxpy", "mathematical programming"]
 classifiers = [
@@ -45,6 +45,7 @@ Documentation = "http://github.com/cvxgrp/dccp/"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/dccp"]
+include = ["src/dccp/py.typed"]
 
 [tool.hatch.build.targets.sdist]
 include = ["/src", "/examples", "/README.md", "/LICENSE", "/NOTICE"]
@@ -57,6 +58,7 @@ dev = [
     "pre-commit==4.2.0",
     "pre-commit-hooks==5.0.0",
     "pylint==3.3.4",
+    "pyright==1.1.390",
     "pytest==8.4.1",
     "pytest-cov==6.2.1",
     "ruff==0.12.7",
@@ -126,6 +128,7 @@ markers = ["integration: marks as integration test"]
 filterwarnings = [
     "ignore:Reading from a sparse CVXPY expression via `.value` is discouraged. Use `.value_sparse` instead:RuntimeWarning",
     "ignore:invalid value encountered",
+    "ignore:property 'status' of 'Problem' object has no setter:DeprecationWarning",
 ]
 
 [tool.ruff]
@@ -151,6 +154,34 @@ known-first-party = ["dccp"]
 [tool.ruff.lint.mccabe]
 max-complexity = 25
 
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = [
+    "S101",    # Allow assert in tests
+    "PLR2004", # Allow magic values in tests
+]
+"__init__.py" = [
+    "F401",    # Allow unused imports in __init__
+]
+
 [tool.codespell]
 ignore-words-list = "fro"
 skip = "pyproject.toml"
+
+[tool.pyright]
+include = ["src"]
+exclude = ["**/__pycache__", "**/.*", "examples"]
+typeCheckingMode = "strict"
+pythonVersion = "3.11"
+pythonPlatform = "All"
+
+# Strict settings with cvxpy compatibility
+reportMissingTypeStubs = false
+reportUnknownMemberType = false
+reportUnknownArgumentType = false
+reportUnknownVariableType = false
+reportImportCycles = "error"
+reportUnnecessaryIsInstance = "warning"
+reportUnnecessaryCast = "warning"
+reportUnusedImport = "error"
+reportUnusedVariable = "warning"
+reportDuplicateImport = "error"

@@ -97,6 +97,13 @@ repos:
         types: [python]
         entry: uv run pylint
         exclude: ^docs/
+      - id: pyright
+        name: 🎯 Type checking with pyright
+        language: system
+        types: [python]
+        entry: uv run pyright
+        pass_filenames: false
+        stages: [pre-commit, pre-push, manual]
       - id: trailing-whitespace
         name: ✄  Trim Trailing Whitespace
         language: system

@@ -14,7 +14,9 @@ DCCP is built on top of [CVXPY](http://www.cvxpy.org/), a domain-specific langua
 
 ## Installation
 
-You should first install [CVXPY 1.5](http://www.cvxpy.org/) or greater.
+**Requirements:**
+- Python 3.11 or higher
+- CVXPY 1.5.4 or higher (tested with 1.5.4, 1.6.7, and 1.7.x)
 
 You can install the latest DCCP package via pip:
 
@@ -29,6 +31,8 @@ git clone https://github.com/cvxgrp/dccp.git
 cd dccp
 pip install -e .
 ```
+
+**Note:** DCCP now includes full type hints and passes strict type checking with pyright.
 
 ## DCCP Rules
 

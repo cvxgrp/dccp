@@ -12,7 +12,11 @@ if TYPE_CHECKING:
 
 import cvxpy as cp
 import numpy as np
-from cvxpy.constraints.zero import Equality
+
+try:
+    from cvxpy.constraints.zero import Equality
+except ImportError:
+    from cvxpy.constraints import Equality  # type: ignore[attr-defined]
 
 from .constraint import convexify_constr
 from .initialization import initialize
@@ -21,6 +25,15 @@ from .utils import DCCPSettings, NonDCCPError, is_dccp
 
 logger = logging.getLogger("dccp")
 logger.setLevel(logging.INFO)
+
+
+def _set_problem_status(prob: cp.Problem, status: str) -> None:
+    """Set problem status via internal _status attribute.
+
+    Workaround since cvxpy's status property is read-only.
+    Directly sets the internal _status attribute which the status property reads.
+    """
+    prob._status = status  # noqa: SLF001
 
 
 @dataclass
@@ -298,11 +311,11 @@ class DCCP:
             )
 
         # terminate with infeasibility if not converged after max iterations
-        self.prob_in._status = cp.INFEASIBLE  # noqa: SLF001
+        _set_problem_status(self.prob_in, cp.INFEASIBLE)
 
         # write the solution back to the original problem
         if converged:
-            self.prob_in._status = cp.OPTIMAL  # noqa: SLF001
+            _set_problem_status(self.prob_in, cp.OPTIMAL)
             for var in self.prob_in.variables():
                 var.value = self.iter.prob.var_dict[var.name()].value
             return self.iter.cost
@@ -387,7 +400,7 @@ class DCCP:
             )
 
         # Set the best solution
-        self.prob_in._status = best_status  # noqa: SLF001
+        _set_problem_status(self.prob_in, best_status)
         for var in self.prob_in.variables():
             if best_var_values and var.id in best_var_values:
                 var.value = best_var_values[var.id]
