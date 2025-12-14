@@ -58,7 +58,7 @@ dev = [
     "pre-commit==4.2.0",
     "pre-commit-hooks==5.0.0",
     "pylint==3.3.4",
-    "pyright==1.1.390",
+    "pyright==1.1.407",
     "pytest==8.4.1",
     "pytest-cov==6.2.1",
     "ruff==0.12.7",
@@ -166,22 +166,3 @@ max-complexity = 25
 [tool.codespell]
 ignore-words-list = "fro"
 skip = "pyproject.toml"
-
-[tool.pyright]
-include = ["src"]
-exclude = ["**/__pycache__", "**/.*", "examples"]
-typeCheckingMode = "strict"
-pythonVersion = "3.11"
-pythonPlatform = "All"
-
-# Strict settings with cvxpy compatibility
-reportMissingTypeStubs = false
-reportUnknownMemberType = false
-reportUnknownArgumentType = false
-reportUnknownVariableType = false
-reportImportCycles = "error"
-reportUnnecessaryIsInstance = "warning"
-reportUnnecessaryCast = "warning"
-reportUnusedImport = "error"
-reportUnusedVariable = "warning"
-reportDuplicateImport = "error"

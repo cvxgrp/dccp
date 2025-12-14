@@ -18,6 +18,7 @@ class TestExample:
         constr = cp.norm(x) >= 1
         x.value = [1, 1]
         constr_conv = convexify_constr(constr)
+        assert constr_conv is not None
         prob_conv = cp.Problem(cp.Minimize(cp.norm(x)), [constr_conv.constr])
         prob_conv.solve()
         assert prob_conv.status == cp.OPTIMAL
@@ -27,6 +28,7 @@ class TestExample:
         constr = cp.sqrt(a) <= 1
         a.value = [1]
         constr_conv = convexify_constr(constr)
+        assert constr_conv is not None
         prob_conv = cp.Problem(
             cp.Minimize(a), [constr_conv.constr, *constr_conv.domain]
         )

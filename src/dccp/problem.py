@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import logging
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import (  # pylint: disable=no-name-in-module
+    ProcessPoolExecutor,
+    as_completed,
+)
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
-
-if TYPE_CHECKING:
-    from multiprocessing.context import BaseContext
 
 import cvxpy as cp
 import numpy as np
@@ -23,6 +23,9 @@ from .initialization import initialize
 from .objective import convexify_obj
 from .utils import DCCPSettings, NonDCCPError, is_dccp
 
+if TYPE_CHECKING:
+    from multiprocessing.context import BaseContext
+
 logger = logging.getLogger("dccp")
 logger.setLevel(logging.INFO)
 
@@ -33,7 +36,7 @@ def _set_problem_status(prob: cp.Problem, status: str) -> None:
     Workaround since cvxpy's status property is read-only.
     Directly sets the internal _status attribute which the status property reads.
     """
-    prob._status = status  # noqa: SLF001
+    prob._status = status  # noqa: SLF001  # type: ignore[reportPrivateUsage]
 
 
 @dataclass
@@ -162,7 +165,7 @@ class DCCP:
 
         # construction of DCCP sub-problem
         init_kwargs = {}
-        if self.conf.k_ccp is not None and self.conf.k_ccp > 1:
+        if self.conf.k_ccp > 1:
             init_kwargs["random"] = True
         if self.conf.seed is not None:
             init_kwargs["seed"] = self.conf.seed
@@ -290,11 +293,7 @@ class DCCP:
 
             # update previous values
             prev_cost = new_cost if new_cost is not None else prev_cost
-            prev_cost_no_slack = (
-                new_cost_no_slack
-                if new_cost_no_slack is not None
-                else prev_cost_no_slack
-            )
+            prev_cost_no_slack = new_cost_no_slack
 
             # update tau for the next iteration
             if self.iter.tau.value is not None:

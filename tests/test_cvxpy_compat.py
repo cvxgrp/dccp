@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import cvxpy as cp
-import pytest
+from cvxpy.reductions.solution import Solution
 
-from dccp.problem import _set_problem_status
+from dccp.problem import Equality, _set_problem_status
 
 
 class TestCvxpyCompatibility:
@@ -58,8 +58,6 @@ class TestCvxpyCompatibility:
 
     def test_equality_constraint_import(self) -> None:
         """Test that Equality constraint can be imported and used."""
-        from dccp.problem import Equality
-
         x = cp.Variable()
         constraint = x == 0
 
@@ -80,14 +78,12 @@ class TestCvxpyCompatibility:
         assert convex.curvature == "CONVEX"
 
         # Concave expression
-        concave = -x**2
+        concave = -(x**2)
         assert isinstance(concave.curvature, str)
         assert concave.curvature == "CONCAVE"
 
     def test_solution_object_structure(self) -> None:
         """Test that Solution object can be created and has expected structure."""
-        from cvxpy.reductions.solution import Solution
-
         sol = Solution(cp.OPTIMAL, 1.0, {}, {}, {})
         assert sol.status == cp.OPTIMAL
         assert sol.opt_val == 1.0
