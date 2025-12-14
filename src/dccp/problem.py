@@ -12,11 +12,7 @@ from typing import TYPE_CHECKING, Any
 
 import cvxpy as cp
 import numpy as np
-
-try:
-    from cvxpy.constraints.zero import Equality
-except ImportError:
-    from cvxpy.constraints import Equality  # type: ignore[attr-defined]
+from cvxpy.constraints.zero import Equality
 
 from .constraint import convexify_constr
 from .initialization import initialize
