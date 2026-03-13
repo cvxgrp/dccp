@@ -303,6 +303,7 @@ class DCCP:
         # write the solution back to the original problem
         if converged:
             self.prob_in._status = cp.OPTIMAL  # noqa: SLF001
+            self.prob_in._value = self.iter.prob.value
             for var in self.prob_in.variables():
                 var.value = self.iter.prob.var_dict[var.name()].value
             return self.iter.cost
