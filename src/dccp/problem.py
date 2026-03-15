@@ -17,6 +17,7 @@ from cvxpy.constraints.zero import Equality
 
 from .constraint import convexify_constr
 from .initialization import initialize
+from .linearize import LinearizationData  # noqa: F401
 from .objective import convexify_obj
 from .utils import DCCPSettings, NonDCCPError, is_dccp
 
@@ -183,6 +184,7 @@ class DCCP:
 
         initialize(prob, **init_kwargs)
         self.iter = DCCPIter(prob=prob, tau=self.tau)
+        self.linearization_map = {}  # type: ignore[var-annotated]
 
         self._prev_var_values = {}
         self._store_previous_values()
@@ -210,8 +212,49 @@ class DCCP:
                 val = var.value
                 self._prev_var_values[var] = val.copy() if hasattr(val, "copy") else val
 
+    def _update_parameters(self) -> None:
+        """Update parameters of the subproblem."""
+        params_updated = False
+        k_damp = 0
+        while not params_updated and k_damp < self.conf.max_iter_damp:
+            try:
+                for data in self.linearization_map.values():
+                    val = data.expr.value
+                    if val is None:
+                        # Damping needed
+                        msg = f"Expression {data.expr} value is None"
+                        raise ValueError(msg)  # noqa: TRY301
+
+                    # Update parameter values
+                    data.value.value = val
+
+                    grad_map = data.expr.grad
+                    for var in data.expr.variables():
+                        if grad_map[var] is None:
+                            msg = f"Gradient for {var.name()} is None"
+                            raise ValueError(msg)  # noqa: TRY301
+
+                        data.grads[var].value = grad_map[var]
+                        data.points[var].value = var.value
+                params_updated = True
+            except (ValueError, Exception) as e:  # noqa: BLE001
+                logger.debug("Parameter update failed: %s. Applying damping.", e)
+                self._apply_damping()
+                k_damp += 1
+
+        if not params_updated:
+            msg = (
+                "Damping did not yield valid parameters after "
+                f"{self.conf.max_iter_damp} iterations."
+            )
+            raise NonDCCPError(msg)
+
     def _construct_subproblem(self) -> None:
         """Construct the DCCP sub-problem."""
+        if self.linearization_map:
+            self._update_parameters()
+            return
+
         prob = self.prob_in
 
         # split non-affine equality constraints
@@ -227,12 +270,12 @@ class DCCP:
         var_slack: list[cp.Variable] = []
 
         # convexify objective with damping if needed
-        obj = convexify_obj(prob.objective)
+        obj = convexify_obj(prob.objective, self.linearization_map)
         if not prob.objective.is_dcp():
             k_damp = 0
             while obj is None and k_damp < self.conf.max_iter_damp:
                 self._apply_damping()
-                obj = convexify_obj(prob.objective)
+                obj = convexify_obj(prob.objective, self.linearization_map)
                 k_damp += 1
             if obj is None:
                 msg = (
@@ -256,10 +299,10 @@ class DCCP:
             var_slack.append(v_slack)
 
             # convexify the constraint with damping if needed
-            c_conv = convexify_constr(c)
+            c_conv = convexify_constr(c, self.linearization_map)
             while c_conv is None:
                 self._apply_damping()
-                c_conv = convexify_constr(c)
+                c_conv = convexify_constr(c, self.linearization_map)
 
             new_constr.extend(list(c_conv.domain))
             new_constr.append(c_conv.constr.expr <= v_slack)
