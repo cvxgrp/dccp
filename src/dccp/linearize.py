@@ -174,7 +174,37 @@ def _linearize_legacy(expr: cp.Expression) -> cp.Expression | None:
 def linearize(
     expr: cp.Expression, linearization_map: dict[int, LinearizationData] | None = None
 ) -> cp.Expression | None:
-    """Return the tangent approximation to the expression."""
+    """Return the tangent approximation to the expression.
+
+    Linearize non-convex CVXPY expressions using first-order Taylor expansion around
+    given points. The linearization approximates a function by:
+
+    .. math::
+        f(x) ≈ f(x_0) + ∇f(x_0)^T(x - x_0)
+
+    Where :math:`x_0` is the point of linearization, :math:`f(x_0)` is the function
+    value at that point, and :math:`∇f(x_0)` is the gradient at that point.
+
+    Parameters
+    ----------
+    expr : cvxpy.Expression
+        An expression to linearize.
+    linearization_map : dict, optional
+        A dictionary to cache linearization parameters. If provided, the function
+        uses a DPP-compliant approach where coefficients are CVXPY Parameters.
+        Defaults to None.
+
+    Returns
+    -------
+    cvxpy.Expression
+        An affine expression representing the tangent approximation.
+
+    Raises
+    ------
+    ValueError
+        If the expression is non-affine and has missing variable values.
+
+    """
     expr_str = f"Affected expression [{expr.name()}]: {expr}."
     if expr.is_complex() or any(v.is_complex() for v in expr.variables()):
         msg = (
