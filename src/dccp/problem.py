@@ -211,7 +211,7 @@ class DCCP:
                 val = var.value
                 self._prev_var_values[var] = val.copy() if hasattr(val, "copy") else val
 
-    def _update_parameters(self) -> None:
+    def _update_linearizations(self) -> None:
         """Update parameters of the subproblem."""
         params_updated = False
         k = 0
@@ -220,22 +220,22 @@ class DCCP:
                 for data in self.linearization_map.values():
                     # Ensure expression has a value
                     if data.expr.value is None:
-                        msg = f"Expression {data.expr} value is None"
-                        raise ValueError(msg)  # noqa: TRY301
+                        try:
+                            val = data.expr.value
+                            if val is None:
+                                # Trigger evaluation
+                                val = data.expr.save_value(data.expr.value)
+                        except Exception:  # noqa: BLE001, S110
+                            pass
 
-                    # Helper method updates base_value, grads, and biases
-                    # handling sparse matrices and other details.
-                    data.update()
-
-                    # Verify gradients were actually available
-                    grad_map = data.expr.grad
-                    for var in data.grads:
-                        if grad_map[var] is None:
-                            msg = f"Gradient for {var.name()} is None"
+                        if data.expr.value is None:
+                            msg = f"Expression {data.expr} value is None"
                             raise ValueError(msg)  # noqa: TRY301
 
+                    data.update()
+
                 params_updated = True
-            except (ValueError, Exception) as e:
+            except (ValueError, Exception) as e:  # noqa: BLE001
                 logger.debug("Parameter update failed: %s. Applying damping.", e)
                 self._apply_damping()
                 k += 1
@@ -250,9 +250,11 @@ class DCCP:
     def _construct_subproblem(self) -> None:
         """Construct the DCCP sub-problem."""
         if self.linearization_map:
-            self._update_parameters()
+            self._update_linearizations()
+            self._store_previous_values()
             return
 
+        # First time construction
         prob = self.prob_in
 
         # split non-affine equality constraints

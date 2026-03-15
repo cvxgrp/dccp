@@ -19,10 +19,8 @@ class LinearizationData:
     ----------
     grads : dict[cp.Variable, cp.Parameter]
         A mapping from variables to their gradients at the linearization point.
-    biases : dict[cp.Variable, cp.Parameter]
-        A mapping from variables to their bias contributions (f(x0) component).
-    base_value : cp.Parameter
-        The value of the expression at the linearization point.
+    offset : cp.Parameter
+        The bias term (f(x0) - <grad, x0>) for the linearization.
     expr : cp.Expression
         The original expression being linearized.
     tangent_expr : cp.Expression | None
@@ -31,57 +29,61 @@ class LinearizationData:
     """
 
     grads: dict[cp.Variable, cp.Parameter]
-    biases: dict[cp.Variable, cp.Parameter]
-    base_value: cp.Parameter
+    offset: cp.Parameter
     expr: cp.Expression
     tangent_expr: cp.Expression | None = None
-
-    def _compute_bias(
-        self, grad: np.ndarray, x0: np.ndarray, var: cp.Variable
-    ) -> float | np.ndarray:
-        """Compute the bias term for a variable."""
-        # Logic mirroring _linearize_term construction
-        if var.ndim > 1:
-            # Matrix variable
-            temp = x0.reshape(-1, 1, order=ORDER)
-            g_t = np.transpose(grad)
-            flattened = g_t @ temp
-            bias_val = -flattened.reshape(self.expr.shape, order=ORDER)
-        elif var.size > 1:
-            # Vector variable
-            bias_val = -np.transpose(grad) @ x0
-        else:
-            # Scalar variable
-            bias_val = -grad * x0
-
-        if np.ndim(bias_val) > 0 and self.expr.shape == ():
-            return float(bias_val.item())
-        return bias_val
 
     def update(self) -> None:
         """Update the parameters with current variable values."""
         if self.expr.value is None:
-            return
+            msg = "Expression value is None"
+            raise ValueError(msg)
 
-        self.base_value.value = self.expr.value
+        # Fetch gradient map
         grad_map = self.expr.grad
 
-        for var, param_grad in self.grads.items():
-            if grad_map[var] is not None:
-                g = grad_map[var]
-                if sp.issparse(g):
-                    g = g.toarray()
-                param_grad.value = g
+        # Calculate term <grad, x0>
+        dot_product = 0.0
 
-                if var.value is not None:
-                    self.biases[var].value = self._compute_bias(g, var.value, var)
+        for var, param_grad in self.grads.items():
+            g = grad_map[var]
+            if g is None:
+                msg = f"Gradient for {var.name()} is None"
+                raise ValueError(msg)
+
+            if sp.issparse(g):
+                g = g.toarray()
+            param_grad.value = g
+
+            # Accumulate <grad, var_val>
+            if var.value is not None:
+                # Logic mirroring _linearize_term construction
+                if var.ndim > 1:
+                    # Matrix variable
+                    temp = var.value.reshape(-1, 1, order=ORDER)
+                    g_t = np.transpose(g)
+                    flattened = g_t @ temp
+                    term = flattened.reshape(self.expr.shape, order=ORDER)
+                elif var.size > 1:
+                    # Vector variable
+                    term = np.transpose(g) @ var.value
+                else:
+                    # Scalar variable
+                    term = g * var.value
+
+                dot_product += term
+
+        # Update offset: f(x0) - <grad, x0>
+        val = self.expr.value - dot_product
+        if self.expr.shape == () and np.ndim(val) > 0 and val.size == 1:
+            val = val.item()
+        self.offset.value = val
 
 
 def _linearize_term(
     expr_shape: tuple[int, ...],
     var: cp.Variable,
     grad: cp.Parameter,
-    bias: cp.Parameter,
 ) -> cp.Expression:
     """Compute the linearized term for a single variable."""
     if var.ndim > 1:
@@ -91,12 +93,11 @@ def _linearize_term(
             order=ORDER,
         )
         flattened = cp.transpose(grad) @ temp
-        linear_term = cp.reshape(flattened, expr_shape, order=ORDER)
-        return linear_term + bias
+        return cp.reshape(flattened, expr_shape, order=ORDER)
 
     if var.size > 1:
-        return cp.transpose(grad) @ var + bias
-    return grad * var + bias
+        return cp.transpose(grad) @ var
+    return grad * var
 
 
 def _linearize_param(
@@ -108,8 +109,6 @@ def _linearize_param(
 
     grad_map = expr.grad
     param_grads = {}
-    param_biases = {}
-    param_base_value = cp.Parameter(expr.shape)  # Value populated via update()
 
     # Create Parameters
     for var in expr.variables():
@@ -117,19 +116,22 @@ def _linearize_param(
             return None
 
         g = grad_map[var]
+        # Parameter shape matches the gradient shape
         param_grads[var] = cp.Parameter(g.shape)
-        param_biases[var] = cp.Parameter(expr.shape)
+
+    # Create one offset parameter matching expression shape
+    param_offset = cp.Parameter(expr.shape)
 
     # Build Expression Graph (Symbolic only)
-    tangent = param_base_value
+    tangent = param_offset
     for var in expr.variables():
         tangent = tangent + _linearize_term(
-            expr.shape, var, param_grads[var], param_biases[var]
+            expr.shape, var, param_grads[var]
         )
 
     # Store in cache
     data = LinearizationData(
-        param_grads, param_biases, param_base_value, expr, tangent
+        param_grads, param_offset, expr, tangent
     )
     linearization_map[id(expr)] = data
 

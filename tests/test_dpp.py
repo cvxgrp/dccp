@@ -22,7 +22,14 @@ def test_linearize_dpp_basic():
     
     data = cache[id(expr)]
     assert isinstance(data, LinearizationData)
-    assert np.allclose(data.base_value.value, 5.0)
+    # Check that it contains offset
+    assert data.offset is not None
+    assert isinstance(data.offset, cp.Parameter)
+    
+    # We simplified LinearizationData to not store base_value,
+    # as offset = base_value - dot(grad, x0)
+    # At x0=[1,2], f(x0)=5, grad=[2,4], offset = 5 - (2*1 + 4*2) = 5 - 10 = -5
+    assert np.allclose(data.offset.value, -5.0)
 
 def test_linearization_data_update():
     """Test that updating LinearizationData reflects in the expression."""
