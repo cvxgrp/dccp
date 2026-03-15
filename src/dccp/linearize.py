@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 import cvxpy as cp
 import numpy as np
+import scipy.sparse as sp
 
 from dccp.utils import ORDER
 
@@ -68,6 +69,8 @@ class LinearizationData:
         for var, param_grad in self.grads.items():
             if grad_map[var] is not None:
                 g = grad_map[var]
+                if sp.issparse(g):
+                    g = g.toarray()
                 param_grad.value = g
 
                 if var.value is not None:

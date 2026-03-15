@@ -17,7 +17,6 @@ from cvxpy.constraints.zero import Equality
 
 from .constraint import convexify_constr
 from .initialization import initialize
-from .linearize import LinearizationData  # noqa: F401
 from .objective import convexify_obj
 from .utils import DCCPSettings, NonDCCPError, is_dccp
 
@@ -215,32 +214,31 @@ class DCCP:
     def _update_parameters(self) -> None:
         """Update parameters of the subproblem."""
         params_updated = False
-        k_damp = 0
-        while not params_updated and k_damp < self.conf.max_iter_damp:
+        k = 0
+        while not params_updated and k < self.conf.max_iter_damp:
             try:
                 for data in self.linearization_map.values():
-                    val = data.expr.value
-                    if val is None:
-                        # Damping needed
+                    # Ensure expression has a value
+                    if data.expr.value is None:
                         msg = f"Expression {data.expr} value is None"
                         raise ValueError(msg)  # noqa: TRY301
 
-                    # Update parameter values
-                    data.value.value = val
+                    # Helper method updates base_value, grads, and biases
+                    # handling sparse matrices and other details.
+                    data.update()
 
+                    # Verify gradients were actually available
                     grad_map = data.expr.grad
-                    for var in data.expr.variables():
+                    for var in data.grads:
                         if grad_map[var] is None:
                             msg = f"Gradient for {var.name()} is None"
                             raise ValueError(msg)  # noqa: TRY301
 
-                        data.grads[var].value = grad_map[var]
-                        data.points[var].value = var.value
                 params_updated = True
-            except (ValueError, Exception) as e:  # noqa: BLE001
+            except (ValueError, Exception) as e:
                 logger.debug("Parameter update failed: %s. Applying damping.", e)
                 self._apply_damping()
-                k_damp += 1
+                k += 1
 
         if not params_updated:
             msg = (
