@@ -1,18 +1,180 @@
 """Unit tests for DCCP problem module."""
 
+from typing import ClassVar
+
 import cvxpy as cp
 import numpy as np
 import pytest
 
-import dccp.problem as dccp_impl  # Aliased to avoid conflict with dccp function
 from dccp.problem import DCCP, DCCPIter, dccp
 from dccp.utils import DCCPSettings, NonDCCPError
-from tests.utils import (
-    FakeExecutor,
-    FakeFuture,
-    FakeLinearizationData,
-    FakeValueExpr,
-)
+
+
+class ValueExprStub:
+    """Configurable expression-like stub for linearization map tests."""
+
+    def __init__(
+        self,
+        values: list[float | None] | None = None,
+        *,
+        save_raises: bool = False,
+        save_result: float = 1.0,
+    ) -> None:
+        """Initialize value sequence and save behavior."""
+        self._values = [None] if values is None else values
+        self._index = 0
+        self._save_raises = save_raises
+        self._save_result = save_result
+
+    @property
+    def value(self) -> float | None:
+        """Return next value from sequence, then keep returning the last one."""
+        idx = min(self._index, len(self._values) - 1)
+        self._index += 1
+        return self._values[idx]
+
+    def save_value(self, _value: object) -> float:
+        """Return save result or raise if configured."""
+        if self._save_raises:
+            msg = "Save failed"
+            raise ValueError(msg)
+        return self._save_result
+
+    def __str__(self) -> str:
+        """Return display name."""
+        return "ValueExprStub"
+
+
+class LinearizationDataStub:
+    """Minimal linearization data holder for update path tests."""
+
+    def __init__(self, expr: object | None = None) -> None:
+        """Initialize with expression and update flag."""
+        self.expr = (
+            ValueExprStub(values=[None], save_raises=True) if expr is None else expr
+        )
+        self.updated = False
+
+    def update(self) -> None:
+        """Record that update was called."""
+        self.updated = True
+
+
+class FutureStub:
+    """Mimic concurrent.futures.Future for local test control."""
+
+    def __init__(
+        self,
+        res: tuple[float, dict[int, object]] | None = None,
+        exc: Exception | None = None,
+    ) -> None:
+        """Initialize future outcome."""
+        self._res = res
+        self._exc = exc
+
+    def result(self) -> tuple[float, dict[int, object]] | None:
+        """Return the result or raise configured exception."""
+        if self._exc is not None:
+            raise self._exc
+        return self._res
+
+
+class TauNoneSubproblemDCCP(DCCP):
+    """DCCP stub that bypasses subproblem construction."""
+
+    def _construct_subproblem(self) -> None:
+        """Skip subproblem construction."""
+
+
+class IterStub:
+    """Minimal iteration state for solve-loop branch tests."""
+
+    def __init__(self, tau: cp.Parameter) -> None:
+        """Initialize fixed iteration values."""
+        self.tau = tau
+        self.k = 0
+        self.cost = np.inf
+
+    @property
+    def cost_no_slack(self) -> float:
+        """Return fixed non-converged objective value."""
+        return np.inf
+
+    @property
+    def slack(self) -> float:
+        """Return fixed positive slack value."""
+        return 1.0
+
+    def solve(self, **_kwargs: object) -> None:
+        """Advance one iteration."""
+        self.k += 1
+
+
+class NonOptimalSolveDCCP(DCCP):
+    """DCCP stub that forces non-optimal solve status."""
+
+    def _solve(self) -> float:
+        """Set infeasible status and return infinite objective."""
+        self.prob_in._status = cp.INFEASIBLE
+        return np.inf
+
+
+class NoBestSequentialDCCP(DCCP):
+    """DCCP stub that returns no valid sequential solution."""
+
+    def _solve_multi_sequential(
+        self, _num_inits: int
+    ) -> tuple[float, dict[int, object] | None, str]:
+        """Return no best candidate."""
+        return np.inf, None, cp.INFEASIBLE
+
+
+class FutureQueueExecutor:
+    """Executor stub returning pre-seeded futures in submission order."""
+
+    _seeded_futures: ClassVar[list[FutureStub]] = []
+
+    @classmethod
+    def seed(cls, futures: list[FutureStub]) -> None:
+        """Set deterministic future sequence for the next executor instance."""
+        cls._seeded_futures = futures.copy()
+
+    def __init__(self, *_args: object, **_kwargs: object) -> None:
+        """Initialize submission counter."""
+        self._calls = 0
+
+    def __enter__(self) -> "FutureQueueExecutor":
+        """Enter context manager."""
+        return self
+
+    def __exit__(self, *_args: object) -> None:
+        """Exit context manager."""
+
+    def submit(self, _fn: object, *_args: object, **_kwargs: object) -> FutureStub:
+        """Return next pre-seeded future."""
+        future = self._seeded_futures[self._calls]
+        self._calls += 1
+        return future
+
+
+class OneErrorThenSuccessDCCP(DCCP):
+    """DCCP stub that errors once then returns a fixed successful result."""
+
+    def __init__(self, *args: object, **kwargs: object) -> None:
+        """Initialize base class and call state."""
+        super().__init__(*args, **kwargs)
+        self._call_count = 0
+        self.solution_var_id: int | None = None
+
+    def _solve_one_init(self) -> tuple[float | None, dict[int, object] | None]:
+        """Raise on first call and return success afterwards."""
+        self._call_count += 1
+        if self._call_count == 1:
+            msg = "Fail"
+            raise NonDCCPError(msg)
+        if self.solution_var_id is None:
+            return None, None
+        return 10.0, {self.solution_var_id: 10.0}
 
 
 class TestDCCPIter:
@@ -214,8 +376,8 @@ class TestDCCP:
         x = cp.Variable(name="x")
         prob = cp.Problem(cp.Maximize(x**2), [x >= 0])
         solver = DCCP(prob, settings=DCCPSettings(verify_dccp=False))
-        data = FakeLinearizationData(
-            expr=FakeValueExpr(values=[None, 1.0], save_result=1.0)
+        data = LinearizationDataStub(
+            expr=ValueExprStub(values=[None, 1.0], save_result=1.0)
         )
         solver.linearization_map = {1: data}
 
@@ -223,25 +385,15 @@ class TestDCCP:
 
         assert data.updated
 
-    def test_solve_tau_none_skips_tau_update_branch(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_solve_tau_none_skips_tau_update_branch(self) -> None:
         """Test solve loop handles None tau value without attempting tau update."""
         x = cp.Variable(name="x")
         prob = cp.Problem(cp.Maximize(x**2), [x >= 0])
-        solver = DCCP(prob, settings=DCCPSettings(verify_dccp=False, max_iter=0))
-
-        monkeypatch.setattr(solver, "_construct_subproblem", lambda: None)
-        solver.iter.tau.value = None
-
-        def _fake_solve(**_kwargs: object) -> None:
-            solver.iter.k += 1
-
-        monkeypatch.setattr(solver.iter, "solve", _fake_solve)
-        monkeypatch.setattr(
-            type(solver.iter), "cost_no_slack", property(lambda _self: np.inf)
+        solver = TauNoneSubproblemDCCP(
+            prob, settings=DCCPSettings(verify_dccp=False, max_iter=0)
         )
-        monkeypatch.setattr(type(solver.iter), "slack", property(lambda _self: 1.0))
+        solver.iter = IterStub(solver.tau)  # type: ignore[assignment]
+        solver.iter.tau.value = None
 
         result = solver._solve()
 
@@ -388,16 +540,13 @@ class TestSolveMultiInit:
         assert x.id in var_values  # Keyed by variable id
         assert solver.prob_in.status == cp.OPTIMAL
 
-    def test_solve_one_init_returns_none_when_not_optimal(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_solve_one_init_returns_none_when_not_optimal(self) -> None:
         """Test _solve_one_init returns (None, None) for non-optimal status."""
         x = cp.Variable(2)
         prob = cp.Problem(cp.Maximize(cp.norm(x)), [x >= 0, x <= 1])
-        solver = DCCP(prob, settings=DCCPSettings(verify_dccp=False, seed=42))
-
-        monkeypatch.setattr(solver, "_solve", lambda: np.inf)
-        prob._status = cp.INFEASIBLE
+        solver = NonOptimalSolveDCCP(
+            prob, settings=DCCPSettings(verify_dccp=False, seed=42)
+        )
 
         cost, var_values = solver._solve_one_init()
 
@@ -441,6 +590,25 @@ class TestSolveMultiInit:
         assert result is not None
         assert prob.status == cp.OPTIMAL
 
+    def test_solve_multi_init_restores_original_values_if_no_best_solution(
+        self,
+    ) -> None:
+        """Test solve_multi_init restores original variable values on failure."""
+        x = cp.Variable(2)
+        prob = cp.Problem(cp.Maximize(cp.norm(x)), [x >= 0, x <= 1])
+        x.value = np.array([0.25, 0.75])
+
+        solver = NoBestSequentialDCCP(
+            prob, settings=DCCPSettings(verify_dccp=False, seed=42)
+        )
+
+        result = solver.solve_multi_init(2, parallel=False)
+
+        assert np.isneginf(result)
+        assert prob.status == cp.INFEASIBLE
+        assert x.value is not None
+        assert np.allclose(x.value, np.array([0.25, 0.75]))
+
     def test_update_linearizations_damping_failure_lines(self) -> None:
         """Test parameter update failure triggers damping."""
         x = cp.Variable(name="x_var")
@@ -448,7 +616,7 @@ class TestSolveMultiInit:
         prob = cp.Problem(cp.Maximize(x**2))
         dccp_solver = DCCP(prob, settings=DCCPSettings(max_iter_damp=2))
         dccp_solver._prev_var_values = {x: np.array(2.0)}
-        dccp_solver.linearization_map = {1: FakeLinearizationData()}
+        dccp_solver.linearization_map = {1: LinearizationDataStub()}
 
         with pytest.raises(
             NonDCCPError, match="Damping did not yield valid parameters"
@@ -468,26 +636,28 @@ class TestSolveMultiInit:
         # Should not have converged in 1 iteration, so set to INFEASIBLE
         assert prob._status == cp.INFEASIBLE
 
-    def test_solve_multi_init_parallel_handles_error(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_solve_multi_init_parallel_handles_error(self) -> None:
         """Test solve_multi_parallel handles errors in futures."""
         x = cp.Variable()
         prob = cp.Problem(cp.Maximize(x**2), [x >= 1])
         dccp_solver = DCCP(prob)
 
         # We construct futures with specific outcomes
-        f1 = FakeFuture(exc=NonDCCPError("Worker fail"))
-        f2 = FakeFuture(res=(5.0, {x.id: 5.0}))
+        f1 = FutureStub(exc=NonDCCPError("Worker fail"))
+        f2 = FutureStub(res=(5.0, {x.id: 5.0}))
 
-        def fake_as_completed(_futures: list) -> list[FakeFuture]:
+        def fake_as_completed(_futures: list[FutureStub]) -> list[FutureStub]:
             return [f1, f2]
 
-        # Monkeypatch dccp.problem references
-        monkeypatch.setattr(dccp_impl, "ProcessPoolExecutor", FakeExecutor)
-        monkeypatch.setattr(dccp_impl, "as_completed", fake_as_completed)
+        FutureQueueExecutor.seed([f1, f2])
 
-        cost, _vars, status = dccp_solver._solve_multi_parallel(2, None, None)
+        cost, _vars, status = dccp_solver._solve_multi_parallel(
+            2,
+            None,
+            None,
+            executor_cls=FutureQueueExecutor,
+            as_completed_fn=fake_as_completed,
+        )
 
         assert cost == 5.0
         assert status == cp.OPTIMAL
@@ -496,20 +666,8 @@ class TestSolveMultiInit:
         """Test solve_multi_sequential continues on NonDCCPError."""
         x = cp.Variable()
         prob = cp.Problem(cp.Maximize(x**2), [x >= 1])
-        dccp_solver = DCCP(prob)
-
-        # Mock _solve_one_init to handle sequential calls manually
-        call_count = 0
-
-        def side_effect() -> tuple[float, dict] | None:
-            nonlocal call_count
-            call_count += 1
-            if call_count == 1:
-                err_msg = "Fail"
-                raise NonDCCPError(err_msg)
-            return (10.0, {x.id: 10.0})
-
-        dccp_solver._solve_one_init = side_effect
+        dccp_solver = OneErrorThenSuccessDCCP(prob)
+        dccp_solver.solution_var_id = x.id
 
         cost, _vars, status = dccp_solver._solve_multi_sequential(2)
         assert cost == 10.0

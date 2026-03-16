@@ -7,7 +7,60 @@ import scipy.sparse as sp
 
 from dccp import linearize
 from dccp.linearize import LinearizationData
-from tests.utils import FakeExpression, assert_almost_equal
+from tests.utils import assert_almost_equal
+
+
+class LinearizationExprStub:
+    """Minimal expression-like object for linearization unit tests."""
+
+    def __init__(
+        self,
+        *,
+        value: float | np.ndarray | None,
+        grad: dict[cp.Variable, object],
+        shape: tuple[int, ...] = (),
+        name: str = "expr_stub",
+    ) -> None:
+        """Initialize test expression state."""
+        self._value = value
+        self._grad = grad
+        self._shape = shape
+        self._name = name
+
+    def name(self) -> str:
+        """Return display name."""
+        return self._name
+
+    def is_complex(self) -> bool:
+        """Return whether expression is complex."""
+        return False
+
+    def variables(self) -> list[cp.Variable]:
+        """Return expression variables."""
+        return list(self._grad.keys())
+
+    def is_affine(self) -> bool:
+        """Return affine status."""
+        return False
+
+    def parameters(self) -> list[cp.Parameter]:
+        """Return parameters."""
+        return []
+
+    @property
+    def value(self) -> float | np.ndarray | None:
+        """Return value."""
+        return self._value
+
+    @property
+    def grad(self) -> dict[cp.Variable, object]:
+        """Return gradient map."""
+        return self._grad
+
+    @property
+    def shape(self) -> tuple[int, ...]:
+        """Return shape."""
+        return self._shape
 
 
 class TestLinearize:
@@ -80,16 +133,8 @@ class TestLinearize:
         x = cp.Variable()
         x.value = 0.0
 
-        # Mock expression behavior to return None for gradient
-        mock_expr = FakeExpression(shape=(), value=1.0)
-        mock_expr._variables = [x]
-        mock_expr.grad = {x: None}
-        mock_expr._is_complex = False
-        mock_expr._is_affine = False
-        mock_expr._parameters_list = []
-        mock_expr._name = "mock_expr"
-
-        res = linearize(mock_expr, {})
+        expr = LinearizationExprStub(value=1.0, grad={x: None}, name="grad_none_expr")
+        res = linearize(expr, {})  # type: ignore[arg-type]
         assert res is None
 
     def test_linearization_data_update_none_value_lines(self) -> None:
@@ -111,13 +156,11 @@ class TestLinearize:
         x = cp.Variable(name="x_var")
         x.value = 1.0
 
-        # Mock expression to return None in gradient map
-        mock_expr = FakeExpression(shape=(), value=1.0)
-        mock_expr.grad = {x: None}
+        expr = LinearizationExprStub(value=1.0, grad={x: None}, name="grad_none_expr")
 
         grads = {x: cp.Parameter(shape=x.shape)}
-        offset = cp.Parameter(shape=mock_expr.shape)
-        data = LinearizationData(grads, offset, mock_expr)
+        offset = cp.Parameter(shape=expr.shape)
+        data = LinearizationData(grads, offset, expr)  # type: ignore[arg-type]
 
         with pytest.raises(ValueError, match=r"Gradient for .* is None"):
             data.update()
@@ -127,14 +170,17 @@ class TestLinearize:
         x = cp.Variable()
         x.value = 2.0
 
-        mock_expr = FakeExpression(shape=(), value=np.array([4.0]))
-        # Gradient must be scalar/0-d to match param_grad shape (x is scalar)
-        mock_expr.grad = {x: np.array(4.0)}
+        expr = LinearizationExprStub(
+            value=np.array([4.0]),
+            grad={x: np.array(4.0)},
+            shape=(),
+            name="scalar_array_expr",
+        )
 
         grads = {x: cp.Parameter(shape=x.shape)}
         offset = cp.Parameter(shape=())
 
-        data = LinearizationData(grads, offset, mock_expr)
+        data = LinearizationData(grads, offset, expr)  # type: ignore[arg-type]
 
         data.update()
 
@@ -162,26 +208,16 @@ class TestLinearize:
         """Test LinearizationData.update handles sparse gradients."""
         x = cp.Variable(3, name="x_vec")
         x.value = np.array([1.0, 2.0, 3.0])
-        # x**2 returns vector expression.
+        expr = cp.sum(cp.square(x))
+        grad = expr.grad[x]
+        assert grad is not None
+        assert sp.issparse(grad)
 
-        # Mocking a sparse gradient return
-        # expr.grad is a dict {var: value}
-        # We need to manually construct LinearizationData or mock expr.grad
-
-        # Let's mock expr
-        mock_expr = FakeExpression(shape=(), value=14.0)
-
-        # Create a sparse matrix for gradient
-        # Safer: use a variable x and set grad to strictly a sparse matrix
-        # regardless of shape consistency for this unit test of *branch coverage*.
-        mock_expr.grad = {x: sp.coo_matrix([[1], [0], [3]])}
-
-        # Construct LinearizationData
-        param_grad = cp.Parameter(shape=(3, 1))  # match sparse shape
+        param_grad = cp.Parameter(shape=grad.shape)
         grads = {x: param_grad}
         offset = cp.Parameter(shape=())
 
-        data = LinearizationData(grads, offset, mock_expr)
+        data = LinearizationData(grads, offset, expr)
         data.update()
 
         # Check if param_grad.value becomes dense
@@ -208,12 +244,16 @@ class TestLinearize:
         y = cp.Variable(name="y")
         y.value = 3.0
 
-        mock_expr = FakeExpression(shape=(), value=5.0)
-        mock_expr.grad = {x: np.array(1.0), y: np.array(2.0)}
+        expr = LinearizationExprStub(
+            value=5.0,
+            grad={x: np.array(1.0), y: np.array(2.0)},
+            shape=(),
+            name="partial_value_expr",
+        )
 
         grads = {x: cp.Parameter(shape=()), y: cp.Parameter(shape=())}
         offset = cp.Parameter(shape=())
-        data = LinearizationData(grads, offset, mock_expr)
+        data = LinearizationData(grads, offset, expr)  # type: ignore[arg-type]
 
         data.update()
 
