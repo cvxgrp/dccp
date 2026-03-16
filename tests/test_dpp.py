@@ -9,40 +9,20 @@ import numpy as np
 from dccp.linearize import LinearizationData, linearize
 
 
-def test_linearize_dpp_basic() -> None:
-    """Test that linearize with cache returns parameterized expression."""
-    x = cp.Variable(2)
-    x.value = np.array([1.0, 2.0])
-    expr = x[0] ** 2 + x[1] ** 2
-
-    cache = {}
-    lin_expr = linearize(expr, linearization_map=cache)
-
-    assert len(cache) == 1
-    assert isinstance(lin_expr, cp.Expression)
-    # Check that it contains parameters
-    assert len(lin_expr.parameters()) > 0
-
-    data = cache[id(expr)]
-    assert isinstance(data, LinearizationData)
-    # Check that it contains offset
-    assert data.offset is not None
-    assert isinstance(data.offset, cp.Parameter)
-
-    # We simplified LinearizationData to not store base_value,
-    # as offset = base_value - dot(grad, x0)
-    # At x0=[1,2], f(x0)=5, grad=[2,4], offset = 5 - (2*1 + 4*2) = 5 - 10 = -5
-    assert np.allclose(data.offset.value, -5.0)
-
-
 def test_linearization_data_update() -> None:
-    """Test that updating LinearizationData reflects in the expression."""
+    """Test DPP cache creation and parameter updates reflect in expression value."""
     x = cp.Variable()
     x.value = 2.0
     expr = x**2
 
     cache = {}
     lin_expr = linearize(expr, linearization_map=cache)
+
+    assert len(cache) == 1
+    assert len(lin_expr.parameters()) > 0
+    data = cache[id(expr)]
+    assert isinstance(data, LinearizationData)
+    assert np.isclose(data.offset.value, -4.0)
 
     # Current linearization at x=2:
     # f(x) ~ f(x0) + f'(x0)(x - x0) = 4 + 4(x - 2)
@@ -54,7 +34,7 @@ def test_linearization_data_update() -> None:
     assert np.isclose(lin_expr.value, 8.0)
 
     # Now update parameters to x0=3
-    cache[id(expr)].update()
+    data.update()
 
     # New linearization at x=3:
     # f(x) ~ 9 + 6(x - 3)

@@ -7,7 +7,12 @@ import pytest
 import dccp.problem as dccp_impl  # Aliased to avoid conflict with dccp function
 from dccp.problem import DCCP, DCCPIter, dccp
 from dccp.utils import DCCPSettings, NonDCCPError
-from tests.utils import FakeExecutor, FakeFuture, FakeLinearizationData
+from tests.utils import (
+    FakeExecutor,
+    FakeFuture,
+    FakeLinearizationData,
+    FakeValueExpr,
+)
 
 
 class TestDCCPIter:
@@ -181,24 +186,8 @@ class TestDCCP:
         assert dccp_solver.conf.seed == 42
         assert dccp_solver.conf.verify_dccp is False
 
-    def test_apply_damping_skips_non_eligible_variable_and_continues(self) -> None:
-        """Test damping loop continues when one variable does not satisfy condition."""
-        x = cp.Variable(name="x")
-        y = cp.Variable(name="y")
-        prob = cp.Problem(cp.Maximize(x**2 + y**2), [y >= 0])
-
-        solver = DCCP(prob, settings=DCCPSettings(verify_dccp=False))
-        x.value = None
-        y.value = np.array(4.0)
-        solver._prev_var_values = {y: np.array(2.0)}
-
-        solver._apply_damping()
-
-        assert y.value is not None
-        assert np.isclose(float(y.value), 3.6)
-
-    def test_store_previous_values_skips_none_and_continues(self) -> None:
-        """Test storing previous values ignores None-valued variables."""
+    def test_store_and_damping_skip_none_variable(self) -> None:
+        """Test store and damping both skip variables with None value."""
         x = cp.Variable(name="x")
         y = cp.Variable(name="y")
         prob = cp.Problem(cp.Maximize(x**2 + y**2), [y >= 0])
@@ -213,38 +202,21 @@ class TestDCCP:
         assert x not in solver._prev_var_values
         assert y in solver._prev_var_values
 
+        y.value = np.array(4.0)
+        solver._prev_var_values = {y: np.array(2.0)}
+        solver._apply_damping()
+
+        assert y.value is not None
+        assert np.isclose(float(y.value), 3.6)
+
     def test_update_linearizations_expr_value_becomes_available(self) -> None:
         """Test update_linearizations path where expr.value transitions to valid."""
-
-        class ValueSequenceExpr:
-            def __init__(self) -> None:
-                self._calls = 0
-
-            @property
-            def value(self) -> float | None:
-                self._calls += 1
-                if self._calls == 1:
-                    return None
-                return 1.0
-
-            def save_value(self, _value: object) -> float:
-                return 1.0
-
-            def __str__(self) -> str:
-                return "ValueSequenceExpr"
-
-        class DataStub:
-            def __init__(self) -> None:
-                self.expr = ValueSequenceExpr()
-                self.updated = False
-
-            def update(self) -> None:
-                self.updated = True
-
         x = cp.Variable(name="x")
         prob = cp.Problem(cp.Maximize(x**2), [x >= 0])
         solver = DCCP(prob, settings=DCCPSettings(verify_dccp=False))
-        data = DataStub()
+        data = FakeLinearizationData(
+            expr=FakeValueExpr(values=[None, 1.0], save_result=1.0)
+        )
         solver.linearization_map = {1: data}
 
         solver._update_linearizations()
@@ -255,27 +227,21 @@ class TestDCCP:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Test solve loop handles None tau value without attempting tau update."""
-
-        class FakeTau:
-            value = None
-
-        class FakeIter:
-            def __init__(self) -> None:
-                self.k = 0
-                self.cost = np.inf
-                self.cost_no_slack = np.inf
-                self.slack = 1.0
-                self.tau = FakeTau()
-
-            def solve(self, **_kwargs: object) -> None:
-                self.k += 1
-
         x = cp.Variable(name="x")
         prob = cp.Problem(cp.Maximize(x**2), [x >= 0])
         solver = DCCP(prob, settings=DCCPSettings(verify_dccp=False, max_iter=0))
 
         monkeypatch.setattr(solver, "_construct_subproblem", lambda: None)
-        solver.iter = FakeIter()  # type: ignore[assignment]
+        solver.iter.tau.value = None
+
+        def _fake_solve(**_kwargs: object) -> None:
+            solver.iter.k += 1
+
+        monkeypatch.setattr(solver.iter, "solve", _fake_solve)
+        monkeypatch.setattr(
+            type(solver.iter), "cost_no_slack", property(lambda _self: np.inf)
+        )
+        monkeypatch.setattr(type(solver.iter), "slack", property(lambda _self: 1.0))
 
         result = solver._solve()
 

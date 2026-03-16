@@ -1,6 +1,6 @@
 """Testing utilities for DCCP."""
 
-from typing import Self
+from typing import Any, Self
 
 import cvxpy as cp
 import numpy as np
@@ -12,14 +12,14 @@ class FakeFuture:
 
     def __init__(
         self,
-        res: tuple[float, dict] | None = None,
+        res: tuple[float, dict[int, Any]] | None = None,
         exc: Exception | None = None,
     ) -> None:
         """Initialize the fake future."""
         self._res = res
         self._exc = exc
 
-    def result(self) -> tuple[float, dict] | None:
+    def result(self) -> tuple[float, dict[int, Any]] | None:
         """Return the result or raise an exception."""
         if self._exc:
             raise self._exc
@@ -71,32 +71,54 @@ def assert_almost_in(
     raise AssertionError(msg)
 
 
-class FakeExpr:
-    """A fake expression that always fails."""
+class FakeValueExpr:
+    """A configurable expression-like object for linearization tests."""
 
-    def __init__(self) -> None:
-        """Initialize the fake expression."""
-        self.value = None
+    def __init__(
+        self,
+        values: list[float | None] | None = None,
+        *,
+        save_raises: bool = False,
+        save_result: float = 1.0,
+    ) -> None:
+        """Initialize value sequence and save_value behavior."""
+        self._values = [None] if values is None else values
+        self._index = 0
+        self._save_raises = save_raises
+        self._save_result = save_result
 
-    def save_value(self, _val: float) -> float:
-        """Raise exception as requested."""
-        msg = "Save failed"
-        raise ValueError(msg)
+    @property
+    def value(self) -> float | None:
+        """Return next value from sequence, then keep returning the last one."""
+        idx = min(self._index, len(self._values) - 1)
+        self._index += 1
+        return self._values[idx]
+
+    def save_value(self, _value: object) -> float:
+        """Return save result or raise if configured."""
+        if self._save_raises:
+            msg = "Save failed"
+            raise ValueError(msg)
+        return self._save_result
 
     def __str__(self) -> str:
-        """Return a string representation."""
-        return "FakeExpr"
+        """Return display name."""
+        return "FakeValueExpr"
 
 
 class FakeLinearizationData:
     """Minimal LinearizationData for testing."""
 
-    def __init__(self) -> None:
-        """Initialize the fake linearization data."""
-        self.expr = FakeExpr()
+    def __init__(self, expr: object | None = None) -> None:
+        """Initialize with expression and update flag."""
+        self.expr = (
+            FakeValueExpr(values=[None], save_raises=True) if expr is None else expr
+        )
+        self.updated = False
 
     def update(self) -> None:
-        """Do nothing."""
+        """Record that update was called."""
+        self.updated = True
 
 
 class FakeExpression(cp.Expression):
