@@ -4,8 +4,10 @@ import cvxpy as cp
 import numpy as np
 import pytest
 
+import dccp.problem as dccp_impl  # Aliased to avoid conflict with dccp function
 from dccp.problem import DCCP, DCCPIter, dccp
 from dccp.utils import DCCPSettings, NonDCCPError
+from tests.utils import FakeExecutor, FakeFuture, FakeLinearizationData
 
 
 class TestDCCPIter:
@@ -23,12 +25,15 @@ class TestDCCPIter:
         assert iter_obj.tau.value == 0.005
         assert not iter_obj.vars_slack
 
-    def test_slack_property_no_slack_vars(self) -> None:
-        """Test slack property when no slack variables exist."""
+    def test_slack_property_no_slack_vars_coverage(self) -> None:
+        """Test slack property when no slack variables exist (problem.py:37)."""
         x = cp.Variable(1)
         prob = cp.Problem(cp.Minimize(x**2), [x >= 0])
         iter_obj = DCCPIter(prob=prob)
 
+        # Ensure vars_slack is empty
+        assert not iter_obj.vars_slack
+        # This returns 0.0 at line 37
         assert iter_obj.slack == 0.0
 
     def test_slack_property_with_slack_vars(self) -> None:
@@ -352,3 +357,77 @@ class TestSolveMultiInit:
 
         assert result is not None
         assert prob.status == cp.OPTIMAL
+
+    def test_update_linearizations_damping_failure_lines(self) -> None:
+        """Test parameter update failure triggers damping."""
+        x = cp.Variable(name="x_var")
+        x.value = np.array(1.0)
+        prob = cp.Problem(cp.Maximize(x**2))
+        dccp_solver = DCCP(prob, settings=DCCPSettings(max_iter_damp=2))
+        dccp_solver._prev_var_values = {x: np.array(2.0)}
+        dccp_solver.linearization_map = {1: FakeLinearizationData()}
+
+        with pytest.raises(
+            NonDCCPError, match="Damping did not yield valid parameters"
+        ):
+            dccp_solver._update_linearizations()
+
+    def test_solve_loop_termination_infeasible_line(self) -> None:
+        """Test that solve loop termination sets status coverage."""
+        x = cp.Variable()
+        # Minimal problem: Maximize convex function is non-DCP
+        prob = cp.Problem(cp.Maximize(x**2), [x >= 0])
+        # Force loop to run exactly once and then terminate due to max_iter
+        dccp_solver = DCCP(prob, settings=DCCPSettings(max_iter=0))
+
+        dccp_solver._solve()
+
+        # Should not have converged in 1 iteration, so set to INFEASIBLE
+        assert prob._status == cp.INFEASIBLE
+
+    def test_solve_multi_init_parallel_handles_error(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test solve_multi_parallel handles errors in futures."""
+        x = cp.Variable()
+        prob = cp.Problem(cp.Maximize(x**2), [x >= 1])
+        dccp_solver = DCCP(prob)
+
+        # We construct futures with specific outcomes
+        f1 = FakeFuture(exc=NonDCCPError("Worker fail"))
+        f2 = FakeFuture(res=(5.0, {x.id: 5.0}))
+
+        def fake_as_completed(_futures: list) -> list[FakeFuture]:
+            return [f1, f2]
+
+        # Monkeypatch dccp.problem references
+        monkeypatch.setattr(dccp_impl, "ProcessPoolExecutor", FakeExecutor)
+        monkeypatch.setattr(dccp_impl, "as_completed", fake_as_completed)
+
+        cost, _vars, status = dccp_solver._solve_multi_parallel(2, None, None)
+
+        assert cost == 5.0
+        assert status == cp.OPTIMAL
+
+    def test_solve_multi_init_sequential_handles_error(self) -> None:
+        """Test solve_multi_sequential continues on NonDCCPError."""
+        x = cp.Variable()
+        prob = cp.Problem(cp.Maximize(x**2), [x >= 1])
+        dccp_solver = DCCP(prob)
+
+        # Mock _solve_one_init to handle sequential calls manually
+        call_count = 0
+
+        def side_effect() -> tuple[float, dict] | None:
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                err_msg = "Fail"
+                raise NonDCCPError(err_msg)
+            return (10.0, {x.id: 10.0})
+
+        dccp_solver._solve_one_init = side_effect
+
+        cost, _vars, status = dccp_solver._solve_multi_sequential(2)
+        assert cost == 10.0
+        assert status == cp.OPTIMAL
