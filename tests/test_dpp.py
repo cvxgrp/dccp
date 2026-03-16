@@ -13,7 +13,7 @@ def test_linearize_dpp_basic() -> None:
     """Test that linearize with cache returns parameterized expression."""
     x = cp.Variable(2)
     x.value = np.array([1.0, 2.0])
-    expr = x[0]**2 + x[1]**2
+    expr = x[0] ** 2 + x[1] ** 2
 
     cache = {}
     lin_expr = linearize(expr, linearization_map=cache)
@@ -46,7 +46,7 @@ def test_linearization_data_update() -> None:
 
     # Current linearization at x=2:
     # f(x) ~ f(x0) + f'(x0)(x - x0) = 4 + 4(x - 2)
-    assert np.isclose(lin_expr.value, 4.0) # with x.value=2
+    assert np.isclose(lin_expr.value, 4.0)  # with x.value=2
 
     # Move x to 3, but parameters are still at x0=2
     x.value = 3.0
@@ -85,9 +85,9 @@ def test_benchmark_dpp_vs_rebuild() -> None:
 
     # --- DPP: Update parameters ---
     cache = {}
-    lin_dpp = linearize(expr, linearization_map=cache) # Initial build
+    lin_dpp = linearize(expr, linearization_map=cache)  # Initial build
     prob_dpp = cp.Problem(cp.Minimize(lin_dpp))
-    assert prob_dpp.is_dcp(dpp=True) # Confirm it is DPP compliant
+    assert prob_dpp.is_dcp(dpp=True)  # Confirm it is DPP compliant
 
     # Pre-compile
     with contextlib.suppress(Exception):
@@ -98,14 +98,12 @@ def test_benchmark_dpp_vs_rebuild() -> None:
     start_time = time.time()
     for _ in range(iterations):
         x.value += 0.01
-        data.update() # Just update parameters
+        data.update()  # Just update parameters
         with contextlib.suppress(Exception):
             prob_dpp.get_problem_data(cp.SCS)
     end_time = time.time()
     update_time = end_time - start_time
 
     print(f"\nRebuild time (incl. canonicalization): {rebuild_time:.4f}s")  # noqa: T201
-    print(f"Update time (incl. canonicalization):  {update_time:.4f}s")   # noqa: T201
-    print(f"Speedup:      {rebuild_time / update_time:.2f}x")             # noqa: T201
-
-
+    print(f"Update time (incl. canonicalization):  {update_time:.4f}s")  # noqa: T201
+    print(f"Speedup:      {rebuild_time / update_time:.2f}x")  # noqa: T201

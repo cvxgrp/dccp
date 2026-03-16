@@ -120,9 +120,7 @@ def _linearize_param(
         tangent = tangent + term
 
     # Store in cache
-    data = LinearizationData(
-        param_grads, param_offset, expr, tangent
-    )
+    data = LinearizationData(param_grads, param_offset, expr, tangent)
     linearization_map[id(expr)] = data
 
     # Populate initial values
@@ -220,5 +218,3 @@ def linearize(
 
     # Legacy Path (Non-DPP, rebuilds expression with constants)
     return _linearize_legacy(expr)
-
-

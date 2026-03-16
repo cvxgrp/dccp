@@ -1,6 +1,5 @@
 """Unit tests for DCCP example problems."""
 
-
 import cvxpy as cp
 import numpy as np
 import pytest
@@ -188,7 +187,6 @@ class TestLinearize:
         # Check if param_grad.value becomes dense
         assert isinstance(param_grad.value, np.ndarray)
         assert not sp.issparse(param_grad.value)
-
 
     def test_linearize_vector_variable_branch(self) -> None:
         """Test linearization of expression with vector variables."""

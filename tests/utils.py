@@ -70,6 +70,7 @@ def assert_almost_in(
     msg = f"{a} is not almost equal to any item in {b}."
     raise AssertionError(msg)
 
+
 class FakeExpr:
     """A fake expression that always fails."""
 
