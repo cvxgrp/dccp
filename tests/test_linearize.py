@@ -201,3 +201,21 @@ class TestLinearize:
 
         expected_constant = -(x.value**2)
         assert np.allclose(lin_map[id(expr_vec)].offset.value, expected_constant)
+
+    def test_linearization_data_update_skips_none_var_value_and_continues(self) -> None:
+        """Test update loop continues when one variable has no value."""
+        x = cp.Variable(name="x")
+        y = cp.Variable(name="y")
+        y.value = 3.0
+
+        mock_expr = FakeExpression(shape=(), value=5.0)
+        mock_expr.grad = {x: np.array(1.0), y: np.array(2.0)}
+
+        grads = {x: cp.Parameter(shape=()), y: cp.Parameter(shape=())}
+        offset = cp.Parameter(shape=())
+        data = LinearizationData(grads, offset, mock_expr)
+
+        data.update()
+
+        # Only y contributes to dot product: 2 * 3 = 6, so offset = 5 - 6 = -1
+        assert offset.value == -1.0
