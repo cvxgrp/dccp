@@ -80,26 +80,6 @@ class LinearizationData:
         self.offset.value = val
 
 
-def _linearize_term(
-    expr_shape: tuple[int, ...],
-    var: cp.Variable,
-    grad: cp.Parameter,
-) -> cp.Expression:
-    """Compute the linearized term for a single variable."""
-    if var.ndim > 1:
-        temp = cp.reshape(
-            cp.vec(var, order=ORDER),
-            (var.shape[0] * var.shape[1], 1),
-            order=ORDER,
-        )
-        flattened = cp.transpose(grad) @ temp
-        return cp.reshape(flattened, expr_shape, order=ORDER)
-
-    if var.size > 1:
-        return cp.transpose(grad) @ var
-    return grad * var
-
-
 def _linearize_param(
     expr: cp.Expression, linearization_map: dict[int, LinearizationData]
 ) -> cp.Expression | None:
@@ -110,24 +90,34 @@ def _linearize_param(
     grad_map = expr.grad
     param_grads = {}
 
-    # Create Parameters
-    for var in expr.variables():
-        if grad_map[var] is None:
-            return None
-
-        g = grad_map[var]
-        # Parameter shape matches the gradient shape
-        param_grads[var] = cp.Parameter(g.shape)
-
     # Create one offset parameter matching expression shape
     param_offset = cp.Parameter(expr.shape)
-
-    # Build Expression Graph (Symbolic only)
     tangent = param_offset
+
     for var in expr.variables():
-        tangent = tangent + _linearize_term(
-            expr.shape, var, param_grads[var]
-        )
+        g = grad_map[var]
+        if g is None:
+            return None
+
+        # Create parameter matching gradient shape
+        param = cp.Parameter(g.shape)
+        param_grads[var] = param
+
+        # Build term (inlined logic)
+        if var.ndim > 1:
+            temp = cp.reshape(
+                cp.vec(var, order=ORDER),
+                (var.shape[0] * var.shape[1], 1),
+                order=ORDER,
+            )
+            flattened = cp.transpose(param) @ temp
+            term = cp.reshape(flattened, expr.shape, order=ORDER)
+        elif var.size > 1:
+            term = cp.transpose(param) @ var
+        else:
+            term = param * var
+
+        tangent = tangent + term
 
     # Store in cache
     data = LinearizationData(
