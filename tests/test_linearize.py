@@ -1,5 +1,7 @@
 """Unit tests for DCCP example problems."""
 
+from types import SimpleNamespace
+
 import cvxpy as cp
 import numpy as np
 import pytest
@@ -10,57 +12,24 @@ from dccp.linearize import LinearizationData
 from tests.utils import assert_almost_equal
 
 
-class LinearizationExprStub:
-    """Minimal expression-like object for linearization unit tests."""
-
-    def __init__(
-        self,
-        *,
-        value: float | np.ndarray | None,
-        grad: dict[cp.Variable, object],
-        shape: tuple[int, ...] = (),
-        name: str = "expr_stub",
-    ) -> None:
-        """Initialize test expression state."""
-        self._value = value
-        self._grad = grad
-        self._shape = shape
-        self._name = name
-
-    def name(self) -> str:
-        """Return display name."""
-        return self._name
-
-    def is_complex(self) -> bool:
-        """Return whether expression is complex."""
-        return False
-
-    def variables(self) -> list[cp.Variable]:
-        """Return expression variables."""
-        return list(self._grad.keys())
-
-    def is_affine(self) -> bool:
-        """Return affine status."""
-        return False
-
-    def parameters(self) -> list[cp.Parameter]:
-        """Return parameters."""
-        return []
-
-    @property
-    def value(self) -> float | np.ndarray | None:
-        """Return value."""
-        return self._value
-
-    @property
-    def grad(self) -> dict[cp.Variable, object]:
-        """Return gradient map."""
-        return self._grad
-
-    @property
-    def shape(self) -> tuple[int, ...]:
-        """Return shape."""
-        return self._shape
+def _expr_stub(
+    *,
+    value: float | np.ndarray | None,
+    grad: dict[cp.Variable, object],
+    shape: tuple[int, ...] = (),
+    name: str = "expr_stub",
+) -> object:
+    """Return a minimal expression-like object for branch tests."""
+    return SimpleNamespace(
+        value=value,
+        grad=grad,
+        shape=shape,
+        name=lambda: name,
+        is_complex=lambda: False,
+        variables=lambda: list(grad.keys()),
+        is_affine=lambda: False,
+        parameters=list,
+    )
 
 
 class TestLinearize:
@@ -133,7 +102,7 @@ class TestLinearize:
         x = cp.Variable()
         x.value = 0.0
 
-        expr = LinearizationExprStub(value=1.0, grad={x: None}, name="grad_none_expr")
+        expr = _expr_stub(value=1.0, grad={x: None}, name="grad_none_expr")
         res = linearize(expr, {})  # type: ignore[arg-type]
         assert res is None
 
@@ -156,7 +125,7 @@ class TestLinearize:
         x = cp.Variable(name="x_var")
         x.value = 1.0
 
-        expr = LinearizationExprStub(value=1.0, grad={x: None}, name="grad_none_expr")
+        expr = _expr_stub(value=1.0, grad={x: None}, name="grad_none_expr")
 
         grads = {x: cp.Parameter(shape=x.shape)}
         offset = cp.Parameter(shape=expr.shape)
@@ -170,7 +139,7 @@ class TestLinearize:
         x = cp.Variable()
         x.value = 2.0
 
-        expr = LinearizationExprStub(
+        expr = _expr_stub(
             value=np.array([4.0]),
             grad={x: np.array(4.0)},
             shape=(),
@@ -244,7 +213,7 @@ class TestLinearize:
         y = cp.Variable(name="y")
         y.value = 3.0
 
-        expr = LinearizationExprStub(
+        expr = _expr_stub(
             value=5.0,
             grad={x: np.array(1.0), y: np.array(2.0)},
             shape=(),
