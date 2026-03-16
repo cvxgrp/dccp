@@ -8,6 +8,7 @@ from dccp.problem import DCCP, DCCPSettings
 from dccp.utils import NonDCCPError
 from tests.utils import FakeExpression, assert_almost_equal
 
+
 class TestObjective:
     """Unit test convexification of objective."""
 

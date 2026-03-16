@@ -235,7 +235,7 @@ class DCCP:
                     data.update()
 
                 params_updated = True
-            except (ValueError, Exception) as e:  # noqa: BLE001
+            except Exception as e:  # noqa: BLE001
                 logger.debug("Parameter update failed: %s. Applying damping.", e)
                 self._apply_damping()
                 k += 1

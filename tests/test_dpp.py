@@ -108,3 +108,4 @@ def test_benchmark_dpp_vs_rebuild() -> None:
     print(f"Update time (incl. canonicalization):  {update_time:.4f}s")   # noqa: T201
     print(f"Speedup:      {rebuild_time / update_time:.2f}x")             # noqa: T201
 
+
