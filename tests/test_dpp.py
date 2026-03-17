@@ -5,7 +5,6 @@ import time
 
 import cvxpy as cp
 import numpy as np
-import scipy.sparse as sp
 
 from dccp.linearize import LinearizationData, linearize
 
@@ -41,21 +40,6 @@ def test_linearization_data_update() -> None:
     # f(x) ~ 9 + 6(x - 3)
     # Evaluated at x=3, should be 9
     assert np.isclose(lin_expr.value, 9.0)
-
-
-def test_sparse_gradient_parameter_preserved_in_dpp_cache() -> None:
-    """Test sparse gradients are cached in sparse DPP parameters when possible."""
-    x = cp.Variable(5)
-    x.value = np.arange(1, 6, dtype=float)
-    expr = cp.sum_squares(x)
-
-    cache = {}
-    linearize(expr, linearization_map=cache)
-    data = cache[id(expr)]
-
-    grad_param = data.grads[x]
-    assert grad_param.sparse_idx is not None
-    assert sp.issparse(grad_param.value_sparse)
 
 
 def test_benchmark_dpp_vs_rebuild() -> None:
@@ -103,49 +87,3 @@ def test_benchmark_dpp_vs_rebuild() -> None:
     print(f"\nRebuild time (incl. canonicalization): {rebuild_time:.4f}s")  # noqa: T201
     print(f"Update time (incl. canonicalization):  {update_time:.4f}s")  # noqa: T201
     print(f"Speedup:      {rebuild_time / update_time:.2f}x")  # noqa: T201
-
-
-def test_benchmark_sparse_update_vs_dense_assignment() -> None:
-    """Benchmark sparse-preserving parameter updates against dense assignment."""
-    n = 20000
-    nnz = 200
-    iterations = 200
-
-    rows = np.linspace(0, n - 1, nnz, dtype=int)
-    cols = np.zeros(nnz, dtype=int)
-
-    sparse_param = cp.Parameter((n, 1), sparsity=(rows, cols))
-    dense_param = cp.Parameter((n, 1))
-
-    # Warm-up both paths once.
-    warm_values = np.linspace(1.0, 2.0, nnz)
-    warm_grad = sp.coo_array((warm_values, (rows, cols)), shape=(n, 1))
-    LinearizationData._assign_sparse_param_value(sparse_param, warm_grad)
-    dense_param.value = warm_grad.toarray()
-
-    # Sparse-preserving update path.
-    start_time = time.time()
-    for i in range(iterations):
-        values = np.sin(np.linspace(0.01 * i, 0.01 * i + 1.0, nnz))
-        grad = sp.coo_array((values, (rows, cols)), shape=(n, 1))
-        LinearizationData._assign_sparse_param_value(sparse_param, grad)
-    sparse_update_time = time.time() - start_time
-
-    # Dense baseline path.
-    start_time = time.time()
-    for i in range(iterations):
-        values = np.sin(np.linspace(0.01 * i, 0.01 * i + 1.0, nnz))
-        grad = sp.coo_array((values, (rows, cols)), shape=(n, 1))
-        dense_param.value = grad.toarray()
-    dense_update_time = time.time() - start_time
-
-    print(  # noqa: T201
-        f"\nSparse update time (value_sparse path): {sparse_update_time:.4f}s"
-    )
-    print(  # noqa: T201
-        f"Dense update time (toarray path):       {dense_update_time:.4f}s"
-    )
-    print(  # noqa: T201
-        f"Speedup (dense/sparse):                  "
-        f"{dense_update_time / sparse_update_time:.2f}x"
-    )

@@ -8,7 +8,7 @@ import pytest
 import scipy.sparse as sp
 
 from dccp import linearize
-from dccp.linearize import LinearizationData, _linearize_param
+from dccp.linearize import LinearizationData
 from tests.utils import assert_almost_equal
 
 
@@ -105,9 +105,8 @@ class TestLinearize:
 
         # Manually create data
         grads = {x: cp.Parameter(shape=x.shape)}
-        fx0 = cp.Parameter(shape=expr.shape)
-        grad_dot_x0 = cp.Parameter(shape=expr.shape)
-        data = LinearizationData(grads, fx0, grad_dot_x0, expr)
+        offset = cp.Parameter(shape=expr.shape)
+        data = LinearizationData(grads, offset, expr)
 
         with pytest.raises(ValueError, match="Expression value is None"):
             data.update()
@@ -129,7 +128,7 @@ class TestLinearize:
         assert lin2 is lin1
 
     def test_linearization_data_update_sparse_gradient(self) -> None:
-        """Test LinearizationData.update handles sparse gradients."""
+        """Sparse gradient is densified before being assigned to the parameter."""
         x = cp.Variable(3, name="x_vec")
         x.value = np.array([1.0, 2.0, 3.0])
         expr = cp.sum(cp.square(x))
@@ -139,15 +138,108 @@ class TestLinearize:
 
         param_grad = cp.Parameter(shape=grad.shape)
         grads = {x: param_grad}
-        fx0 = cp.Parameter(shape=())
-        grad_dot_x0 = cp.Parameter(shape=())
+        offset = cp.Parameter(shape=())
 
-        data = LinearizationData(grads, fx0, grad_dot_x0, expr)
+        data = LinearizationData(grads, offset, expr)
         data.update()
 
-        # Check if param_grad.value becomes dense
+        # Parameter always receives a dense value regardless of gradient sparsity.
         assert isinstance(param_grad.value, np.ndarray)
         assert not sp.issparse(param_grad.value)
+
+    def test_linearization_data_update_sparse_gradient_correct_offset(self) -> None:
+        """Sparse gradient dot-product uses sparse arithmetic and yields correct offset."""
+        x = cp.Variable(4, name="x_vec")
+        # all nonzero so the initial gradient has the full structural pattern
+        x.value = np.array([1.0, 2.0, 3.0, 4.0])
+        expr = cp.sum(cp.square(x))
+
+        cache: dict = {}
+        lin = linearize(expr, cache)
+        assert lin is not None
+
+        data = cache[id(expr)]
+        # At x0=[1,2,3,4]: f=30, grad=[2,4,6,8], <grad,x0>=2+8+18+32=60
+        assert np.isclose(data.offset.value, 30.0 - 60.0)
+
+        # Simulate a later iteration where one variable is zero.
+        x.value = np.array([5.0, 0.0, 3.0, -1.0])
+        data.update()
+        # f=35, grad=[10,0,6,-2], <grad,x0>=50+0+18+2=70  →  offset=35-70=-35
+        assert np.isclose(data.offset.value, 35.0 - 70.0)
+
+    def test_linearize_dense_params_for_sparse_gradients(self) -> None:
+        """linearize() creates dense gradient parameters even for sparse gradients."""
+        x = cp.Variable(3, name="x_vec")
+        x.value = np.array([1.0, 2.0, 3.0])
+        expr = cp.sum(cp.square(x))
+
+        cache: dict = {}
+        lin = linearize(expr, cache)
+        assert lin is not None
+
+        data = cache[id(expr)]
+        for param in data.grads.values():
+            # Parameters are always dense for fast DPP canonicalization.
+            assert isinstance(param.value, np.ndarray)
+            assert not sp.issparse(param.value)
+
+    def test_linearize_dpp_compliance(self) -> None:
+        """Linearization produces a DPP-compliant problem that stays compliant after update."""
+        x = cp.Variable(10)
+        x.value = np.ones(10)
+        expr = cp.sum(cp.square(x))
+
+        cache: dict = {}
+        lin = linearize(expr, cache)
+        assert lin is not None
+
+        prob = cp.Problem(cp.Minimize(lin))
+        assert prob.is_dcp(dpp=True)
+
+        x.value = np.ones(10) * 2.0
+        cache[id(expr)].update()
+        assert prob.is_dcp(dpp=True)
+
+    def test_linearize_matrix_variable(self) -> None:
+        """Linearization handles matrix variables (var.ndim > 1 branch in update)."""
+        X = cp.Variable((2, 3))
+        X.value = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
+        expr = cp.sum(cp.square(X))
+
+        cache: dict = {}
+        lin = linearize(expr, cache)
+        assert lin is not None
+
+        # At the linearization point the tangent equals the function value.
+        assert_almost_equal(float(lin.value), float(expr.value))
+
+        # After moving X, update should refresh the linearization correctly.
+        X.value = np.ones((2, 3))
+        cache[id(expr)].update()
+        assert_almost_equal(float(lin.value), float(expr.value))
+
+    def test_update_dense_gradient_matrix_variable(self) -> None:
+        """Dense gradient with matrix variable exercises np.transpose branch in update."""
+        X = cp.Variable((2, 2))
+        X.value = np.eye(2)
+
+        # Dense (4,1) gradient for a (2,2) variable — non-sparse path.
+        g_dense = np.array([[1.0], [0.0], [0.0], [1.0]])
+        expr = _expr_stub(
+            value=2.0,
+            grad={X: g_dense},
+            shape=(),
+            name="dense_matrix_grad_expr",
+        )
+
+        grads = {X: cp.Parameter(shape=(4, 1))}
+        offset = cp.Parameter(shape=())
+        data = LinearizationData(grads, offset, expr)  # type: ignore[arg-type]
+        data.update()
+
+        # g.T @ vec(X) = [1,0,0,1] · [1,0,0,1] = 2.0  →  offset = 2.0 - 2.0 = 0.0
+        assert np.isclose(offset.value, 0.0)
 
     def test_linearization_data_update_skips_none_var_value_and_continues(self) -> None:
         """Test update loop continues when one variable has no value."""
@@ -163,84 +255,10 @@ class TestLinearize:
         )
 
         grads = {x: cp.Parameter(shape=()), y: cp.Parameter(shape=())}
-        fx0 = cp.Parameter(shape=())
-        grad_dot_x0 = cp.Parameter(shape=())
-        data = LinearizationData(grads, fx0, grad_dot_x0, expr)  # type: ignore[arg-type]
+        offset = cp.Parameter(shape=())
+        data = LinearizationData(grads, offset, expr)  # type: ignore[arg-type]
 
         data.update()
 
         # Only y contributes to dot product: 2 * 3 = 6, so offset = 5 - 6 = -1
-        assert np.isclose((fx0.value - grad_dot_x0.value), -1.0)
-
-    def test_assign_sparse_param_value_raises_for_dense_parameter(self) -> None:
-        """Sparse assignment should fail clearly for dense parameters."""
-        param_grad = cp.Parameter((2, 1))
-        grad = sp.coo_array(([1.0], ([0], [0])), shape=(2, 1))
-
-        with pytest.raises(
-            ValueError, match="Sparse assignment requested for a dense parameter"
-        ):
-            LinearizationData._assign_sparse_param_value(param_grad, grad)
-
-    def test_assign_sparse_param_value_raises_on_pattern_mismatch(self) -> None:
-        """Sparse assignment should fail when gradient pattern leaves cached support."""
-        rows = np.array([0])
-        cols = np.array([0])
-        param_grad = cp.Parameter((2, 1), sparsity=(rows, cols))
-        # Nonzero is at (1, 0), outside parameter sparsity pattern {(0, 0)}
-        grad = sp.coo_array(([2.0], ([1], [0])), shape=(2, 1))
-
-        with pytest.raises(
-            ValueError,
-            match="Gradient sparsity pattern changed outside cached DPP structure",
-        ):
-            LinearizationData._assign_sparse_param_value(param_grad, grad)
-
-    def test_linearize_param_dense_gradient_uses_dense_parameter(self) -> None:
-        """Dense gradient path should create dense cvxpy parameters."""
-        x = cp.Variable(name="x_dense_grad")
-        x.value = 2.0
-        expr = _expr_stub(
-            value=4.0,
-            grad={x: np.array(4.0)},
-            shape=(),
-            name="dense_grad_expr",
-        )
-
-        linearization_map: dict[int, LinearizationData] = {}
-        tangent = _linearize_param(expr, linearization_map)  # type: ignore[arg-type]
-
-        assert tangent is not None
-        data = linearization_map[id(expr)]
-        assert data.grads[x].sparse_idx is None
-
-    def test_update_converts_sparse_term_before_accumulation(self) -> None:
-        """Sparse intermediate term is converted before adding into dot product."""
-        x = cp.Variable(name="x_scalar_sparse_term")
-        x.value = 3.0
-
-        grad = sp.coo_array(([2.0], ([0], [0])), shape=(1, 1))
-        expr = _expr_stub(
-            value=np.array([[6.0]]),
-            grad={x: grad},
-            shape=(1, 1),
-            name="sparse_term_expr",
-        )
-
-        rows = np.array([0])
-        cols = np.array([0])
-        grads = {x: cp.Parameter((1, 1), sparsity=(rows, cols))}
-        fx0 = cp.Parameter((1, 1))
-        grad_dot_x0 = cp.Parameter((1, 1))
-        data = LinearizationData(grads, fx0, grad_dot_x0, expr)  # type: ignore[arg-type]
-
-        data.update()
-
-        assert np.allclose(fx0.value, np.array([[6.0]]))
-        assert np.allclose(grad_dot_x0.value, np.array([[6.0]]))
-
-    def test_add_term_scalar_with_sparse_term(self) -> None:
-        """Scalar dot-product accumulation handles sparse terms."""
-        term = sp.coo_array(([1.5, 2.5], ([0, 0], [0, 1])), shape=(1, 2))
-        updated = LinearizationData._add_term(3.0, term)
-        assert np.isclose(updated, 7.0)
+        assert offset.value == -1.0

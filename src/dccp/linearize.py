@@ -19,10 +19,8 @@ class LinearizationData:
     ----------
     grads : dict[cp.Variable, cp.Parameter]
         A mapping from variables to their gradients at the linearization point.
-    fx0 : cp.Parameter
-        The function value term f(x0) for the linearization.
-    grad_dot_x0 : cp.Parameter
-        The inner-product term <grad, x0> evaluated at the linearization point.
+    offset : cp.Parameter
+        The bias term (f(x0) - <grad, x0>) for the linearization.
     expr : cp.Expression
         The original expression being linearized.
     tangent_expr : cp.Expression | None
@@ -31,118 +29,9 @@ class LinearizationData:
     """
 
     grads: dict[cp.Variable, cp.Parameter]
-    fx0: cp.Parameter
-    grad_dot_x0: cp.Parameter
+    offset: cp.Parameter
     expr: cp.Expression
     tangent_expr: cp.Expression | None = None
-
-    @property
-    def offset(self) -> cp.Expression:
-        """Compatibility alias exposing the legacy offset term f(x0) - <grad, x0>."""
-        return self.fx0 - self.grad_dot_x0
-
-    @staticmethod
-    def _coerce_param_value(shape: tuple[int, ...], value: object) -> object:
-        """Convert value to a form accepted by cvxpy.Parameter for given shape."""
-        arr = np.asarray(value.todense()) if sp.issparse(value) else np.asarray(value)
-        if shape == () and np.ndim(arr) > 0 and arr.size == 1:
-            return arr.item()
-        if shape == ():
-            return arr
-        return np.reshape(arr, shape, order=ORDER)
-
-    @staticmethod
-    def _has_sparse_pattern_mismatch(
-        g_sparse: sp.spmatrix | sp.sparray, sparse_idx: tuple[np.ndarray, np.ndarray]
-    ) -> bool:
-        """Return True if gradient has nonzeros outside parameter sparsity pattern."""
-        g_coo = g_sparse.tocoo()
-        grad_nnz = set(zip(g_coo.row.tolist(), g_coo.col.tolist(), strict=False))
-        pattern_nnz = set(
-            zip(sparse_idx[0].tolist(), sparse_idx[1].tolist(), strict=False)
-        )
-        return not grad_nnz.issubset(pattern_nnz)
-
-    @staticmethod
-    def _assign_sparse_param_value(
-        param_grad: cp.Parameter,
-        g: sp.spmatrix | sp.sparray,
-    ) -> None:
-        """Assign sparse gradient to a sparse CVXPY parameter."""
-        sparse_idx = param_grad.sparse_idx
-        if sparse_idx is None:
-            msg = "Sparse assignment requested for a dense parameter."
-            raise ValueError(msg)
-        if LinearizationData._has_sparse_pattern_mismatch(g, sparse_idx):
-            msg = "Gradient sparsity pattern changed outside cached DPP structure."
-            raise ValueError(msg)
-
-        g_coo = g.tocoo()
-        value_map = {
-            (row, col): val
-            for row, col, val in zip(
-                g_coo.row.tolist(),
-                g_coo.col.tolist(),
-                g_coo.data.tolist(),
-                strict=False,
-            )
-        }
-        values = np.fromiter(
-            (
-                value_map.get((row, col), 0.0)
-                for row, col in zip(sparse_idx[0], sparse_idx[1], strict=False)
-            ),
-            dtype=float,
-            count=len(sparse_idx[0]),
-        )
-        sparse_val = sp.coo_array((values, sparse_idx), shape=param_grad.shape)
-        param_grad.value_sparse = sparse_val
-
-    @staticmethod
-    def _transpose_numeric(value: object) -> object:
-        """Transpose numeric/sparse arrays while preserving sparse type."""
-        return value.transpose() if sp.issparse(value) else np.transpose(value)
-
-    @staticmethod
-    def _add_term(dot_product: float | np.ndarray, term: object) -> float | np.ndarray:
-        """Accumulate one term into dot_product, avoiding full sparse densification."""
-        if not sp.issparse(term):
-            return dot_product + term
-
-        term_coo = term.tocoo()
-        if np.isscalar(dot_product):
-            return float(dot_product) + float(np.sum(term_coo.data))
-
-        updated = dot_product.copy()
-        updated[term_coo.row, term_coo.col] += term_coo.data
-        return updated
-
-    @staticmethod
-    def _assign_gradient_parameter(
-        param_grad: cp.Parameter,
-        grad_value: object,
-    ) -> object:
-        """Assign gradient to parameter and return value for numeric use."""
-        if sp.issparse(grad_value) and param_grad.sparse_idx is not None:
-            LinearizationData._assign_sparse_param_value(param_grad, grad_value)
-            return grad_value
-
-        dense_or_scalar = LinearizationData._coerce_param_value(
-            param_grad.shape,
-            grad_value,
-        )
-        param_grad.value = dense_or_scalar
-        return dense_or_scalar
-
-    def _dot_term(self, var: cp.Variable, grad_value: object) -> object:
-        """Return <grad, x0> contribution for one variable at current value."""
-        if var.ndim > 1:
-            temp = var.value.reshape(-1, 1, order=ORDER)
-            flattened = self._transpose_numeric(grad_value) @ temp
-            return flattened.reshape(self.expr.shape, order=ORDER)
-        if var.size > 1:
-            return self._transpose_numeric(grad_value) @ var.value
-        return grad_value * var.value
 
     def update(self) -> None:
         """Update the parameters with current variable values."""
@@ -154,10 +43,7 @@ class LinearizationData:
         grad_map = self.expr.grad
 
         # Calculate term <grad, x0>
-        if self.expr.shape == ():
-            dot_product: float | np.ndarray = 0.0
-        else:
-            dot_product = np.zeros(self.expr.shape)
+        dot_product = 0.0
 
         for var, param_grad in self.grads.items():
             g = grad_map[var]
@@ -165,19 +51,40 @@ class LinearizationData:
                 msg = f"Gradient for {var.name()} is None"
                 raise ValueError(msg)
 
-            grad_value = self._assign_gradient_parameter(param_grad, g)
+            # The CVXPY parameter always receives a dense value.  Assigning a
+            # sparse scipy array to a plain cp.Parameter causes the DPP
+            # canonicalization path to call toarray() internally, which is
+            # significantly slower than keeping the parameter dense.
+            param_grad.value = g.toarray() if sp.issparse(g) else g
 
-            # Accumulate <grad, var_val>
+            # Accumulate <grad, var_val> using the original (possibly sparse) g
+            # so that the dot-product is O(nnz) rather than O(n) for sparse
+            # gradients.  scipy sparse @ dense always returns a dense result,
+            # so no explicit densification is needed for the vector/matrix cases.
             if var.value is not None:
-                dot_product = self._add_term(
-                    dot_product,
-                    self._dot_term(var, grad_value),
-                )
+                if var.ndim > 1:
+                    # Matrix variable: flatten to column vector first.
+                    temp = var.value.reshape(-1, 1, order=ORDER)
+                    g_t = g.T if sp.issparse(g) else np.transpose(g)
+                    flattened = g_t @ temp
+                    term = np.reshape(flattened, self.expr.shape, order=ORDER)
+                elif var.size > 1:
+                    # Vector variable.
+                    g_t = g.T if sp.issparse(g) else np.transpose(g)
+                    term = g_t @ var.value
+                else:
+                    # Scalar variable: sparse * scalar stays sparse.
+                    term = g * var.value
+                    if sp.issparse(term):
+                        term = term.toarray().item()
 
-        self.fx0.value = self._coerce_param_value(self.fx0.shape, self.expr.value)
-        self.grad_dot_x0.value = self._coerce_param_value(
-            self.grad_dot_x0.shape, dot_product
-        )
+                dot_product += term
+
+        # Update offset: f(x0) - <grad, x0>
+        val = self.expr.value - dot_product
+        if self.expr.shape == () and np.ndim(val) > 0 and val.size == 1:
+            val = val.item()
+        self.offset.value = val
 
 
 def _linearize_param(
@@ -190,22 +97,19 @@ def _linearize_param(
     grad_map = expr.grad
     param_grads = {}
 
-    # Create function-value and inner-product parameters matching expression shape
-    param_fx0 = cp.Parameter(expr.shape)
-    param_grad_dot_x0 = cp.Parameter(expr.shape)
-    tangent = param_fx0 - param_grad_dot_x0
+    # Create one offset parameter matching expression shape
+    param_offset = cp.Parameter(expr.shape)
+    tangent = param_offset
 
     for var in expr.variables():
         g = grad_map[var]
         if g is None:
             return None
 
-        # Create parameter matching gradient shape
-        if sp.issparse(g):
-            g_coo = g.tocoo()
-            param = cp.Parameter(g.shape, sparsity=(g_coo.row, g_coo.col))
-        else:
-            param = cp.Parameter(g.shape)
+        # Create a dense parameter for the gradient.  CVXPY's DPP
+        # canonicalization path is faster with dense parameter values;
+        # sparsity of the gradient is only exploited in update() arithmetic.
+        param = cp.Parameter(g.shape)
         param_grads[var] = param
 
         # Build term (inlined logic)
@@ -225,7 +129,7 @@ def _linearize_param(
         tangent = tangent + term
 
     # Store in cache
-    data = LinearizationData(param_grads, param_fx0, param_grad_dot_x0, expr, tangent)
+    data = LinearizationData(param_grads, param_offset, expr, tangent)
     linearization_map[id(expr)] = data
 
     # Populate initial values
