@@ -90,7 +90,7 @@ def test_benchmark_dpp_vs_rebuild() -> None:
     print(f"Speedup:      {rebuild_time / update_time:.2f}x")  # noqa: T201
 
 
-def test_benchmark_sparse_gradient_update() -> None:
+def test_benchmark_sparse_gradient_update() -> None:  # noqa: PLR0915
     """Benchmark sparse SPMV vs dense BLAS for the update() dot-product.
 
     update() calls toarray() once (CVXPY canonicalization requires a dense
@@ -134,20 +134,26 @@ def test_benchmark_sparse_gradient_update() -> None:
             prob_dpp.get_problem_data(cp.SCS)
     sparse_time = time.perf_counter() - start
 
-    # Dense path (baseline): toarray for param AND dot — O(n) BLAS.
-    param_grad = data.grads[x]
-    offset_param = data.offset
+    # Dense path (baseline): toarray for param AND dot — O(n).
+    # Simulate what a dense-only implementation would do.
+    param_grad_d = cp.Parameter((n_small, 1))
+    offset_param_d = cp.Parameter(())
+    lin_dense = cp.transpose(param_grad_d) @ x + offset_param_d
+    prob_dense = cp.Problem(cp.Minimize(lin_dense))
+    with contextlib.suppress(Exception):
+        prob_dense.get_problem_data(cp.SCS)
+
     start = time.perf_counter()
     for _ in range(iterations):
         x.value = rng.standard_normal(n_small)
         g = expr.grad[x]
-        g_dense = g.toarray()
-        param_grad.value = g_dense
-        offset_param.value = float(expr.value) - float(
-            (np.transpose(g_dense) @ x.value).item()
+        g_d = g.toarray()
+        param_grad_d.value = g_d
+        offset_param_d.value = float(expr.value) - float(
+            (np.transpose(g_d) @ x.value).item()
         )
         with contextlib.suppress(Exception):
-            prob_dpp.get_problem_data(cp.SCS)
+            prob_dense.get_problem_data(cp.SCS)
     dense_time = time.perf_counter() - start
 
     # ------------------------------------------------------------------ #
@@ -163,17 +169,21 @@ def test_benchmark_sparse_gradient_update() -> None:
     x_val = rng.standard_normal(n_large)
     arith_iters = 500
 
-    # Sparse: toarray (param) + SPMV (dot) — O(nnz) for the dot.
+    g_d = g_sp.toarray()
+    struct_rows = np.sort(rows)
+    struct_cols = np.zeros(nnz_large, dtype=int)
+
+    # Sparse path (current): value_sparse lookup + SPMV — no toarray().
     start = time.perf_counter()
     for _ in range(arith_iters):
-        _ = g_sp.toarray()  # param assignment cost
+        np.asarray(g_sp[struct_rows, struct_cols]).flatten()  # O(nnz) lookup
         float((g_sp.T @ x_val).item())  # O(nnz) dot
     sparse_arith = time.perf_counter() - start
 
-    # Dense: toarray (param + dot reuse same array) + BLAS — O(n).
+    # Dense path (baseline): toarray + BLAS — O(n) for both steps.
     start = time.perf_counter()
     for _ in range(arith_iters):
-        gd = g_sp.toarray()  # param assignment cost
+        gd = g_sp.toarray()  # O(n) allocation
         float((np.transpose(gd) @ x_val).item())  # O(n) dot
     dense_arith = time.perf_counter() - start
 

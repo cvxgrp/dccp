@@ -51,11 +51,14 @@ class LinearizationData:
                 msg = f"Gradient for {var.name()} is None"
                 raise ValueError(msg)
 
-            # CVXPY's canonicalization requires a dense param value, so one
-            # toarray() is unavoidable.  The dot-product reuses the original
-            # sparse g (no second densification): sparse SPMV is O(nnz) vs
-            # O(n) BLAS, giving a large speedup for big sparse gradients.
-            param_grad.value = g.toarray() if sp.issparse(g) else g
+            if sp.issparse(g) and param_grad.sparse_idx is not None:
+                s_rows, s_cols = param_grad.sparse_idx
+                g_vals = np.asarray(g[s_rows, s_cols]).flatten()
+                param_grad.value_sparse = sp.coo_array(
+                    (g_vals, (s_rows, s_cols)), shape=g.shape
+                )
+            else:
+                param_grad.value = g.toarray() if sp.issparse(g) else g
 
             if var.value is not None:
                 if var.ndim > 1:
@@ -100,7 +103,15 @@ def _linearize_param(
         if g is None:
             return None
 
-        param = cp.Parameter(g.shape)
+        # For sparse gradients, create a sparse parameter so that update()
+        # can use value_sparse and avoid any toarray() call entirely.
+        if sp.issparse(g):
+            rows, cols = g.nonzero()
+            param = cp.Parameter(g.shape, sparsity=(rows, cols))
+            param.value_sparse = sp.coo_array(g)
+        else:
+            param = cp.Parameter(g.shape)
+            param.value = g
         param_grads[var] = param
 
         # Build term (inlined logic)
