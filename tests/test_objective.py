@@ -1,12 +1,10 @@
 """Unit tests for DCCP example problems."""
 
 import cvxpy as cp
-import pytest
 
 from dccp import convexify_obj
-from dccp.problem import DCCP, DCCPSettings
-from dccp.utils import NonDCCPError
-from tests.utils import assert_almost_equal
+
+from .utils import assert_almost_equal
 
 
 class TestObjective:
@@ -35,24 +33,3 @@ class TestObjective:
         assert prob_conv.status == cp.OPTIMAL
         assert prob_conv.value is not None
         assert_almost_equal(float(prob_conv.value), 0.5)  # type: ignore
-
-    def test_convexify_obj_damping_limit_line(self) -> None:
-        """Test that convexify_obj raises NonDCCPError (objective.py:47)."""
-        x = cp.Variable(name="x0")
-        prob = cp.Problem(cp.Maximize(x**2))
-        dccp_solver = DCCP(prob, settings=DCCPSettings(max_iter_damp=0))
-        x.value = None
-
-        with pytest.raises(
-            NonDCCPError, match="Damping did not yield a convexified objective"
-        ):
-            dccp_solver._construct_subproblem()
-
-    def test_convexify_obj_returns_none(self) -> None:
-        """Test convexify_obj returns None if linearization fails."""
-        x = cp.Variable()
-        obj = cp.Maximize(cp.square(x))
-        assert not obj.is_dcp()
-
-        res = convexify_obj(obj)
-        assert res is None

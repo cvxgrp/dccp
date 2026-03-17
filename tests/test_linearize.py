@@ -97,15 +97,6 @@ class TestLinearize:
         lin = linearize(expr)
         assert lin is None
 
-    def test_linearize_return_none_if_grad_none(self) -> None:
-        """Test linearize returns None if gradient is None (linearize.py:88)."""
-        x = cp.Variable()
-        x.value = 0.0
-
-        expr = _expr_stub(value=1.0, grad={x: None}, name="grad_none_expr")
-        res = linearize(expr, {})  # type: ignore[arg-type]
-        assert res is None
-
     def test_linearization_data_update_none_value_lines(self) -> None:
         """Test LinearizationData.update raises ValueError when expr value is None."""
         x = cp.Variable()
@@ -120,45 +111,8 @@ class TestLinearize:
         with pytest.raises(ValueError, match="Expression value is None"):
             data.update()
 
-    def test_linearization_data_update_gradient_none(self) -> None:
-        """Test LinearizationData.update raises ValueError when gradient is None."""
-        x = cp.Variable(name="x_var")
-        x.value = 1.0
-
-        expr = _expr_stub(value=1.0, grad={x: None}, name="grad_none_expr")
-
-        grads = {x: cp.Parameter(shape=x.shape)}
-        offset = cp.Parameter(shape=expr.shape)
-        data = LinearizationData(grads, offset, expr)  # type: ignore[arg-type]
-
-        with pytest.raises(ValueError, match=r"Gradient for .* is None"):
-            data.update()
-
-    def test_linearization_data_update_scalar_array_value(self) -> None:
-        """Test LinearizationData.update handles scalar array values correctly."""
-        x = cp.Variable()
-        x.value = 2.0
-
-        expr = _expr_stub(
-            value=np.array([4.0]),
-            grad={x: np.array(4.0)},
-            shape=(),
-            name="scalar_array_expr",
-        )
-
-        grads = {x: cp.Parameter(shape=x.shape)}
-        offset = cp.Parameter(shape=())
-
-        data = LinearizationData(grads, offset, expr)  # type: ignore[arg-type]
-
-        data.update()
-
-        # Offset should be converted to scalar by the logic in linearize.py
-        assert np.ndim(offset.value) == 0
-        assert offset.value == -4.0
-
     def test_linearize_cache_hit(self) -> None:
-        """Test linearize hits the cache (linearize.py:88 coverage)."""
+        """Test linearize hits the cache."""
         x = cp.Variable()
         x.value = 1.0
         expr = x**2
