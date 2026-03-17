@@ -111,6 +111,15 @@ class TestLinearize:
         with pytest.raises(ValueError, match="Expression value is None"):
             data.update()
 
+    def test_linearize_returns_none_for_undefined_gradient(self) -> None:
+        """linearize() returns None when the gradient is undefined at x."""
+        x = cp.Variable(2)
+        x.value = np.array([0.0, 1.0])  # sqrt(0): derivative is +inf → None
+        expr = cp.sum(cp.sqrt(x))
+        assert expr.value is not None  # value exists but gradient does not
+        result = linearize(expr, linearization_map={})
+        assert result is None
+
     def test_linearize_cache_hit(self) -> None:
         """Test linearize hits the cache."""
         x = cp.Variable()
@@ -128,7 +137,7 @@ class TestLinearize:
         assert lin2 is lin1
 
     def test_linearization_data_update_sparse_gradient(self) -> None:
-        """Sparse gradient is densified before being assigned to the parameter."""
+        """Sparse gradient is stored as-is in the parameter (no densification)."""
         x = cp.Variable(3, name="x_vec")
         x.value = np.array([1.0, 2.0, 3.0])
         expr = cp.sum(cp.square(x))
@@ -143,12 +152,12 @@ class TestLinearize:
         data = LinearizationData(grads, offset, expr)
         data.update()
 
-        # Parameter always receives a dense value regardless of gradient sparsity.
+        # Parameter receives a dense array (CVXPY canonicalization requires it).
         assert isinstance(param_grad.value, np.ndarray)
         assert not sp.issparse(param_grad.value)
 
     def test_linearization_data_update_sparse_gradient_correct_offset(self) -> None:
-        """Sparse gradient dot-product uses sparse arithmetic, yields correct offset."""
+        """Sparse gradient used directly; offset value is numerically correct."""
         x = cp.Variable(4, name="x_vec")
         # all nonzero so the initial gradient has the full structural pattern
         x.value = np.array([1.0, 2.0, 3.0, 4.0])
@@ -168,8 +177,8 @@ class TestLinearize:
         # f=35, grad=[10,0,6,-2], <grad,x0>=50+0+18+2=70  →  offset=35-70=-35
         assert np.isclose(data.offset.value, 35.0 - 70.0)
 
-    def test_linearize_dense_params_for_sparse_gradients(self) -> None:
-        """linearize() creates dense gradient parameters even for sparse gradients."""
+    def test_linearize_dense_param_sparse_dot(self) -> None:
+        """linearize() densifies grad for the CVXPY param; dot product stays sparse."""
         x = cp.Variable(3, name="x_vec")
         x.value = np.array([1.0, 2.0, 3.0])
         expr = cp.sum(cp.square(x))
@@ -180,7 +189,7 @@ class TestLinearize:
 
         data = cache[id(expr)]
         for param in data.grads.values():
-            # Parameters are always dense for fast DPP canonicalization.
+            # CVXPY canonicalization requires a dense param value.
             assert isinstance(param.value, np.ndarray)
             assert not sp.issparse(param.value)
 

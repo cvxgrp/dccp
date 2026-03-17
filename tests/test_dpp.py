@@ -5,6 +5,7 @@ import time
 
 import cvxpy as cp
 import numpy as np
+import scipy.sparse as sp
 
 from dccp.linearize import LinearizationData, linearize
 
@@ -87,3 +88,106 @@ def test_benchmark_dpp_vs_rebuild() -> None:
     print(f"\nRebuild time (incl. canonicalization): {rebuild_time:.4f}s")  # noqa: T201
     print(f"Update time (incl. canonicalization):  {update_time:.4f}s")  # noqa: T201
     print(f"Speedup:      {rebuild_time / update_time:.2f}x")  # noqa: T201
+
+
+def test_benchmark_sparse_gradient_update() -> None:
+    """Benchmark sparse SPMV vs dense BLAS for the update() dot-product.
+
+    update() calls toarray() once (CVXPY canonicalization requires a dense
+    parameter value) and then reuses the original sparse gradient for the
+    offset dot-product via SPMV — O(nnz) instead of O(n).
+
+    The CVXPY gradient-computation overhead hides the arithmetic difference
+    at small n.  Part 2 isolates the arithmetic at large n (50 000, 0.5%
+    fill) where sparse SPMV is significantly faster than dense BLAS.
+    """
+    # ------------------------------------------------------------------ #
+    # Part 1: full DPP update() at small n — sparse vs dense dot-product  #
+    # ------------------------------------------------------------------ #
+    n_small = 500
+    step_small = 50  # 2% fill => ~10 nonzeros
+    active_small = np.arange(0, n_small, step_small)
+
+    rng = np.random.default_rng(42)
+    x = cp.Variable(n_small)
+    x.value = rng.standard_normal(n_small)
+    expr = cp.sum_squares(x[active_small])
+
+    cache: dict = {}
+    lin_dpp = linearize(expr, linearization_map=cache)
+    prob_dpp = cp.Problem(cp.Minimize(lin_dpp))
+    with contextlib.suppress(Exception):
+        prob_dpp.get_problem_data(cp.SCS)
+    data = cache[id(expr)]
+
+    g_sample = expr.grad[x]
+    assert sp.issparse(g_sample), "Expected sparse gradient for indexed expression"
+
+    iterations = 30
+
+    # Sparse path (current): toarray for param, SPMV for dot — O(nnz).
+    start = time.perf_counter()
+    for _ in range(iterations):
+        x.value = rng.standard_normal(n_small)
+        data.update()
+        with contextlib.suppress(Exception):
+            prob_dpp.get_problem_data(cp.SCS)
+    sparse_time = time.perf_counter() - start
+
+    # Dense path (baseline): toarray for param AND dot — O(n) BLAS.
+    param_grad = data.grads[x]
+    offset_param = data.offset
+    start = time.perf_counter()
+    for _ in range(iterations):
+        x.value = rng.standard_normal(n_small)
+        g = expr.grad[x]
+        g_dense = g.toarray()
+        param_grad.value = g_dense
+        offset_param.value = float(expr.value) - float(
+            (np.transpose(g_dense) @ x.value).item()
+        )
+        with contextlib.suppress(Exception):
+            prob_dpp.get_problem_data(cp.SCS)
+    dense_time = time.perf_counter() - start
+
+    # ------------------------------------------------------------------ #
+    # Part 2: isolated arithmetic at large n — sparse wins clearly         #
+    # ------------------------------------------------------------------ #
+    n_large = 50_000
+    nnz_large = 250  # 0.5% fill
+    rows = rng.choice(n_large, size=nnz_large, replace=False)
+    g_sp = sp.csc_array(
+        (rng.standard_normal(nnz_large), (rows, np.zeros(nnz_large, dtype=int))),
+        shape=(n_large, 1),
+    )
+    x_val = rng.standard_normal(n_large)
+    arith_iters = 500
+
+    # Sparse: toarray (param) + SPMV (dot) — O(nnz) for the dot.
+    start = time.perf_counter()
+    for _ in range(arith_iters):
+        _ = g_sp.toarray()  # param assignment cost
+        float((g_sp.T @ x_val).item())  # O(nnz) dot
+    sparse_arith = time.perf_counter() - start
+
+    # Dense: toarray (param + dot reuse same array) + BLAS — O(n).
+    start = time.perf_counter()
+    for _ in range(arith_iters):
+        gd = g_sp.toarray()  # param assignment cost
+        float((np.transpose(gd) @ x_val).item())  # O(n) dot
+    dense_arith = time.perf_counter() - start
+
+    fill_small = 100.0 * g_sample.nnz / n_small
+    print(  # noqa: T201
+        f"\nSparse-gradient update benchmark"
+        f"\n--- Full DPP update() n={n_small}, fill={fill_small:.0f}%"
+        f" ({iterations} iters, incl. canonicalization) ---"
+        f"\n  Sparse SPMV O(nnz): {sparse_time:.3f}s"
+        f"\n  Dense  BLAS O(n)  : {dense_time:.3f}s"
+        f"  [{dense_time / sparse_time:.2f}x sparse speedup]"
+        f"\n--- Isolated arithmetic n={n_large}, nnz={nnz_large}"
+        f" ({arith_iters} iters) ---"
+        f"\n  Sparse SPMV O(nnz): {sparse_arith:.3f}s"
+        f"\n  Dense  BLAS O(n)  : {dense_arith:.3f}s"
+        f"  [{dense_arith / sparse_arith:.2f}x sparse speedup]"
+    )

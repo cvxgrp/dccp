@@ -51,16 +51,12 @@ class LinearizationData:
                 msg = f"Gradient for {var.name()} is None"
                 raise ValueError(msg)
 
-            # The CVXPY parameter always receives a dense value.  Assigning a
-            # sparse scipy array to a plain cp.Parameter causes the DPP
-            # canonicalization path to call toarray() internally, which is
-            # significantly slower than keeping the parameter dense.
+            # CVXPY's canonicalization requires a dense param value, so one
+            # toarray() is unavoidable.  The dot-product reuses the original
+            # sparse g (no second densification): sparse SPMV is O(nnz) vs
+            # O(n) BLAS, giving a large speedup for big sparse gradients.
             param_grad.value = g.toarray() if sp.issparse(g) else g
 
-            # Accumulate <grad, var_val> using the original (possibly sparse) g
-            # so that the dot-product is O(nnz) rather than O(n) for sparse
-            # gradients.  scipy sparse @ dense always returns a dense result,
-            # so no explicit densification is needed for the vector/matrix cases.
             if var.value is not None:
                 if var.ndim > 1:
                     # Matrix variable: flatten to column vector first.
@@ -69,7 +65,7 @@ class LinearizationData:
                     flattened = g_t @ temp
                     term = np.reshape(flattened, self.expr.shape, order=ORDER)
                 elif var.size > 1:
-                    # Vector variable.
+                    # Vector variable: O(nnz) SPMV if sparse, O(n) BLAS if dense.
                     g_t = g.T if sp.issparse(g) else np.transpose(g)
                     term = g_t @ var.value
                 else:
@@ -104,9 +100,6 @@ def _linearize_param(
         if g is None:
             return None
 
-        # Create a dense parameter for the gradient.  CVXPY's DPP
-        # canonicalization path is faster with dense parameter values;
-        # sparsity of the gradient is only exploited in update() arithmetic.
         param = cp.Parameter(g.shape)
         param_grads[var] = param
 
