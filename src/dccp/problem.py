@@ -489,22 +489,19 @@ class DCCP:
         num_inits: int,
         max_workers: int | None,
         mp_context: BaseContext | None,
-        *,
-        executor_cls: type[ProcessPoolExecutor] = ProcessPoolExecutor,
-        as_completed_fn: Any = as_completed,
     ) -> tuple[float, dict[int, Any] | None, str]:
         """Run multiple initializations in parallel using multiprocessing."""
         best_cost = np.inf
         best_var_values: dict[int, Any] | None = None
         best_status = cp.INFEASIBLE
 
-        with executor_cls(max_workers, mp_context) as executor:
+        with ProcessPoolExecutor(max_workers, mp_context) as executor:
             futures = []
             for _ in range(num_inits):
                 initialize(self.prob_in, random=True)
                 futures.append(executor.submit(self._solve_one_init))
 
-            for future in as_completed_fn(futures):
+            for future in as_completed(futures):
                 try:
                     cost, var_values = future.result()
                     if cost is not None and cost < best_cost:

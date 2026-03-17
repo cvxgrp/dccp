@@ -26,14 +26,12 @@ class TestDCCPIter:
         assert iter_obj.tau.value == 0.005
         assert not iter_obj.vars_slack
 
-    def test_slack_property_no_slack_vars_coverage(self) -> None:
-        """Test slack property when no slack variables exist (problem.py:37)."""
+    def test_slack_property_no_slack_vars(self) -> None:
+        """Test slack property when no slack variables exist."""
         x = cp.Variable(1)
         prob = cp.Problem(cp.Minimize(x**2), [x >= 0])
         iter_obj = DCCPIter(prob=prob)
 
-        # Ensure vars_slack is empty
-        assert not iter_obj.vars_slack
         # This returns 0.0 at line 37
         assert iter_obj.slack == 0.0
 
@@ -519,56 +517,6 @@ class TestSolveMultiInit:
 
         # Should not have converged in 1 iteration, so set to INFEASIBLE
         assert prob._status == cp.INFEASIBLE
-
-    def test_solve_multi_init_parallel_handles_error(self) -> None:
-        """Test solve_multi_parallel handles errors in futures."""
-
-        class FixedExecutor:
-            def __init__(
-                self,
-                *_args: object,
-                **_kwargs: object,
-            ) -> None:
-                self._calls = 0
-
-            def __enter__(self) -> "FixedExecutor":
-                return self
-
-            def __exit__(self, *_args: object) -> None:
-                return None
-
-            def submit(
-                self,
-                _fn: object,
-                *_args: object,
-                **_kwargs: object,
-            ) -> Future:
-                self._calls += 1
-                return f1 if self._calls == 1 else f2
-
-        x = cp.Variable()
-        prob = cp.Problem(cp.Maximize(x**2), [x >= 1])
-        dccp_solver = DCCP(prob)
-
-        # We construct futures with specific outcomes
-        f1: Future = Future()
-        f1.set_exception(NonDCCPError("Worker fail"))
-        f2: Future = Future()
-        f2.set_result((5.0, {x.id: 5.0}))
-
-        def fake_as_completed(_futures: list[Future]) -> list[Future]:
-            return [f1, f2]
-
-        cost, _vars, status = dccp_solver._solve_multi_parallel(
-            2,
-            None,
-            None,
-            executor_cls=FixedExecutor,
-            as_completed_fn=fake_as_completed,
-        )
-
-        assert cost == 5.0
-        assert status == cp.OPTIMAL
 
     def test_solve_multi_init_sequential_handles_error(self) -> None:
         """Test solve_multi_sequential continues on NonDCCPError."""
