@@ -8,7 +8,7 @@ import pytest
 import scipy.sparse as sp
 
 from dccp import linearize
-from dccp.linearize import LinearizationData
+from dccp.linearize import LinearizationData, _linearize_param
 from tests.utils import assert_almost_equal
 
 
@@ -105,8 +105,9 @@ class TestLinearize:
 
         # Manually create data
         grads = {x: cp.Parameter(shape=x.shape)}
-        offset = cp.Parameter(shape=expr.shape)
-        data = LinearizationData(grads, offset, expr)
+        fx0 = cp.Parameter(shape=expr.shape)
+        grad_dot_x0 = cp.Parameter(shape=expr.shape)
+        data = LinearizationData(grads, fx0, grad_dot_x0, expr)
 
         with pytest.raises(ValueError, match="Expression value is None"):
             data.update()
@@ -138,9 +139,10 @@ class TestLinearize:
 
         param_grad = cp.Parameter(shape=grad.shape)
         grads = {x: param_grad}
-        offset = cp.Parameter(shape=())
+        fx0 = cp.Parameter(shape=())
+        grad_dot_x0 = cp.Parameter(shape=())
 
-        data = LinearizationData(grads, offset, expr)
+        data = LinearizationData(grads, fx0, grad_dot_x0, expr)
         data.update()
 
         # Check if param_grad.value becomes dense
@@ -161,10 +163,84 @@ class TestLinearize:
         )
 
         grads = {x: cp.Parameter(shape=()), y: cp.Parameter(shape=())}
-        offset = cp.Parameter(shape=())
-        data = LinearizationData(grads, offset, expr)  # type: ignore[arg-type]
+        fx0 = cp.Parameter(shape=())
+        grad_dot_x0 = cp.Parameter(shape=())
+        data = LinearizationData(grads, fx0, grad_dot_x0, expr)  # type: ignore[arg-type]
 
         data.update()
 
         # Only y contributes to dot product: 2 * 3 = 6, so offset = 5 - 6 = -1
-        assert offset.value == -1.0
+        assert np.isclose((fx0.value - grad_dot_x0.value), -1.0)
+
+    def test_assign_sparse_param_value_raises_for_dense_parameter(self) -> None:
+        """Sparse assignment should fail clearly for dense parameters."""
+        param_grad = cp.Parameter((2, 1))
+        grad = sp.coo_array(([1.0], ([0], [0])), shape=(2, 1))
+
+        with pytest.raises(
+            ValueError, match="Sparse assignment requested for a dense parameter"
+        ):
+            LinearizationData._assign_sparse_param_value(param_grad, grad)
+
+    def test_assign_sparse_param_value_raises_on_pattern_mismatch(self) -> None:
+        """Sparse assignment should fail when gradient pattern leaves cached support."""
+        rows = np.array([0])
+        cols = np.array([0])
+        param_grad = cp.Parameter((2, 1), sparsity=(rows, cols))
+        # Nonzero is at (1, 0), outside parameter sparsity pattern {(0, 0)}
+        grad = sp.coo_array(([2.0], ([1], [0])), shape=(2, 1))
+
+        with pytest.raises(
+            ValueError,
+            match="Gradient sparsity pattern changed outside cached DPP structure",
+        ):
+            LinearizationData._assign_sparse_param_value(param_grad, grad)
+
+    def test_linearize_param_dense_gradient_uses_dense_parameter(self) -> None:
+        """Dense gradient path should create dense cvxpy parameters."""
+        x = cp.Variable(name="x_dense_grad")
+        x.value = 2.0
+        expr = _expr_stub(
+            value=4.0,
+            grad={x: np.array(4.0)},
+            shape=(),
+            name="dense_grad_expr",
+        )
+
+        linearization_map: dict[int, LinearizationData] = {}
+        tangent = _linearize_param(expr, linearization_map)  # type: ignore[arg-type]
+
+        assert tangent is not None
+        data = linearization_map[id(expr)]
+        assert data.grads[x].sparse_idx is None
+
+    def test_update_converts_sparse_term_before_accumulation(self) -> None:
+        """Sparse intermediate term is converted before adding into dot product."""
+        x = cp.Variable(name="x_scalar_sparse_term")
+        x.value = 3.0
+
+        grad = sp.coo_array(([2.0], ([0], [0])), shape=(1, 1))
+        expr = _expr_stub(
+            value=np.array([[6.0]]),
+            grad={x: grad},
+            shape=(1, 1),
+            name="sparse_term_expr",
+        )
+
+        rows = np.array([0])
+        cols = np.array([0])
+        grads = {x: cp.Parameter((1, 1), sparsity=(rows, cols))}
+        fx0 = cp.Parameter((1, 1))
+        grad_dot_x0 = cp.Parameter((1, 1))
+        data = LinearizationData(grads, fx0, grad_dot_x0, expr)  # type: ignore[arg-type]
+
+        data.update()
+
+        assert np.allclose(fx0.value, np.array([[6.0]]))
+        assert np.allclose(grad_dot_x0.value, np.array([[6.0]]))
+
+    def test_add_term_scalar_with_sparse_term(self) -> None:
+        """Scalar dot-product accumulation handles sparse terms."""
+        term = sp.coo_array(([1.5, 2.5], ([0, 0], [0, 1])), shape=(1, 2))
+        updated = LinearizationData._add_term(3.0, term)
+        assert np.isclose(updated, 7.0)
