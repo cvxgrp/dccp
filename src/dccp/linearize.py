@@ -44,10 +44,7 @@ class LinearizationData:
     @staticmethod
     def _coerce_param_value(shape: tuple[int, ...], value: object) -> object:
         """Convert value to a form accepted by cvxpy.Parameter for given shape."""
-        if sp.issparse(value):
-            arr = np.asarray(value.todense())
-        else:
-            arr = np.asarray(value)
+        arr = np.asarray(value.todense()) if sp.issparse(value) else np.asarray(value)
         if shape == () and np.ndim(arr) > 0 and arr.size == 1:
             return arr.item()
         if shape == ():
@@ -121,14 +118,18 @@ class LinearizationData:
         return updated
 
     @staticmethod
-    def _assign_gradient_parameter(param_grad: cp.Parameter, grad_value: object) -> object:
+    def _assign_gradient_parameter(
+        param_grad: cp.Parameter,
+        grad_value: object,
+    ) -> object:
         """Assign gradient to parameter and return value for numeric use."""
         if sp.issparse(grad_value) and param_grad.sparse_idx is not None:
             LinearizationData._assign_sparse_param_value(param_grad, grad_value)
             return grad_value
 
         dense_or_scalar = LinearizationData._coerce_param_value(
-            param_grad.shape, grad_value
+            param_grad.shape,
+            grad_value,
         )
         param_grad.value = dense_or_scalar
         return dense_or_scalar
@@ -168,7 +169,10 @@ class LinearizationData:
 
             # Accumulate <grad, var_val>
             if var.value is not None:
-                dot_product = self._add_term(dot_product, self._dot_term(var, grad_value))
+                dot_product = self._add_term(
+                    dot_product,
+                    self._dot_term(var, grad_value),
+                )
 
         self.fx0.value = self._coerce_param_value(self.fx0.shape, self.expr.value)
         self.grad_dot_x0.value = self._coerce_param_value(
