@@ -148,7 +148,7 @@ class TestLinearize:
         assert not sp.issparse(param_grad.value)
 
     def test_linearization_data_update_sparse_gradient_correct_offset(self) -> None:
-        """Sparse gradient dot-product uses sparse arithmetic and yields correct offset."""
+        """Sparse gradient dot-product uses sparse arithmetic, yields correct offset."""
         x = cp.Variable(4, name="x_vec")
         # all nonzero so the initial gradient has the full structural pattern
         x.value = np.array([1.0, 2.0, 3.0, 4.0])
@@ -185,7 +185,7 @@ class TestLinearize:
             assert not sp.issparse(param.value)
 
     def test_linearize_dpp_compliance(self) -> None:
-        """Linearization produces a DPP-compliant problem that stays compliant after update."""
+        """Linearized problem is DPP-compliant and stays so after a parameter update."""
         x = cp.Variable(10)
         x.value = np.ones(10)
         expr = cp.sum(cp.square(x))
@@ -203,9 +203,9 @@ class TestLinearize:
 
     def test_linearize_matrix_variable(self) -> None:
         """Linearization handles matrix variables (var.ndim > 1 branch in update)."""
-        X = cp.Variable((2, 3))
-        X.value = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
-        expr = cp.sum(cp.square(X))
+        x_mat = cp.Variable((2, 3))
+        x_mat.value = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
+        expr = cp.sum(cp.square(x_mat))
 
         cache: dict = {}
         lin = linearize(expr, cache)
@@ -214,26 +214,26 @@ class TestLinearize:
         # At the linearization point the tangent equals the function value.
         assert_almost_equal(float(lin.value), float(expr.value))
 
-        # After moving X, update should refresh the linearization correctly.
-        X.value = np.ones((2, 3))
+        # After moving x_mat, update should refresh the linearization correctly.
+        x_mat.value = np.ones((2, 3))
         cache[id(expr)].update()
         assert_almost_equal(float(lin.value), float(expr.value))
 
     def test_update_dense_gradient_matrix_variable(self) -> None:
-        """Dense gradient with matrix variable exercises np.transpose branch in update."""
-        X = cp.Variable((2, 2))
-        X.value = np.eye(2)
+        """Dense gradient with matrix variable: exercises np.transpose branch."""
+        x_mat = cp.Variable((2, 2))
+        x_mat.value = np.eye(2)
 
         # Dense (4,1) gradient for a (2,2) variable — non-sparse path.
         g_dense = np.array([[1.0], [0.0], [0.0], [1.0]])
         expr = _expr_stub(
             value=2.0,
-            grad={X: g_dense},
+            grad={x_mat: g_dense},
             shape=(),
             name="dense_matrix_grad_expr",
         )
 
-        grads = {X: cp.Parameter(shape=(4, 1))}
+        grads = {x_mat: cp.Parameter(shape=(4, 1))}
         offset = cp.Parameter(shape=())
         data = LinearizationData(grads, offset, expr)  # type: ignore[arg-type]
         data.update()

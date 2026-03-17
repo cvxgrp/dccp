@@ -218,19 +218,12 @@ class DCCP:
         while not params_updated and k < self.conf.max_iter_damp:
             try:
                 for data in self.linearization_map.values():
-                    # Ensure expression has a value
+                    # Read .value once; a second read would give the same
+                    # result and could trigger spurious warnings for sparse
+                    # CVXPY expressions.
                     if data.expr.value is None:
-                        try:
-                            val = data.expr.value
-                            if val is None:
-                                # Trigger evaluation
-                                val = data.expr.save_value(data.expr.value)
-                        except Exception:  # noqa: BLE001, S110
-                            pass
-
-                        if data.expr.value is None:
-                            msg = f"Expression {data.expr} value is None"
-                            raise ValueError(msg)  # noqa: TRY301
+                        msg = f"Expression {data.expr} value is None"
+                        raise ValueError(msg)  # noqa: TRY301
 
                     data.update()
 

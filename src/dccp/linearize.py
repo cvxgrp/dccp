@@ -73,10 +73,8 @@ class LinearizationData:
                     g_t = g.T if sp.issparse(g) else np.transpose(g)
                     term = g_t @ var.value
                 else:
-                    # Scalar variable: sparse * scalar stays sparse.
+                    # Scalar variable: CVXPY always returns float grad here.
                     term = g * var.value
-                    if sp.issparse(term):
-                        term = term.toarray().item()
 
                 dot_product += term
 
