@@ -1,7 +1,5 @@
 """Unit tests for DCCP problem module."""
 
-from concurrent.futures import Future
-
 import cvxpy as cp
 import numpy as np
 import pytest
@@ -9,6 +7,14 @@ import pytest
 from dccp.linearize import linearize
 from dccp.problem import DCCP, DCCPIter, dccp
 from dccp.utils import DCCPSettings, NonDCCPError
+
+
+class AlwaysFailParallelDCCP(DCCP):
+    """DCCP subclass that always raises in _solve_one_init."""
+
+    def _solve_one_init(self) -> tuple[float | None, dict[int, object] | None]:
+        msg = "Worker fail"
+        raise NonDCCPError(msg)
 
 
 class TestDCCPIter:
@@ -131,6 +137,19 @@ class TestDCCPIter:
         assert iter_obj.k == 1
         if result is not None:
             assert iter_obj.cost == result
+
+    def test_solve_method_returns_none_for_nonnumeric_solver_result(self) -> None:
+        """Test solve returns None when underlying solver result is non-numeric."""
+
+        class DummyProblem:
+            def solve(self, **_kwargs: object) -> object:
+                return {"status": "ok"}
+
+        iter_obj = DCCPIter(prob=DummyProblem())  # type: ignore[arg-type]
+        result = iter_obj.solve()
+
+        assert result is None
+        assert iter_obj.k == 1
 
 
 class TestDCCP:
@@ -275,6 +294,34 @@ class TestDCCP:
 
         assert result == np.inf
         assert prob.status == cp.INFEASIBLE
+
+    def test_construct_subproblem_objective_damping_loop_runs(self) -> None:
+        """Test objective damping loop runs before failing to convexify objective."""
+        x = cp.Variable(name="x")
+        prob = cp.Problem(cp.Maximize(x**2), [x >= 0])
+        solver = DCCP(prob, settings=DCCPSettings(verify_dccp=False, max_iter_damp=1))
+        solver._prev_var_values = {x: np.array(1.0)}
+        x.value = None
+
+        with pytest.raises(
+            NonDCCPError, match="Damping did not yield a convexified objective"
+        ):
+            solver._construct_subproblem()
+
+    def test_construct_subproblem_constraint_damping_loop_runs(self) -> None:
+        """Test constraint damping loop retries convexification until feasible."""
+        x = cp.Variable(name="x")
+        y = cp.Variable(name="y")
+        prob = cp.Problem(cp.Maximize(y**2), [cp.sqrt(x) <= y])
+        solver = DCCP(prob, settings=DCCPSettings(verify_dccp=False))
+
+        x.value = np.array(-1.0)
+        y.value = np.array(1.0)
+        solver._prev_var_values = {x: np.array(1.0), y: np.array(1.0)}
+
+        solver._construct_subproblem()
+
+        assert solver.iter.vars_slack
 
 
 class TestDccpFunction:
@@ -540,3 +587,15 @@ class TestSolveMultiInit:
         cost, _vars, status = dccp_solver._solve_multi_sequential(2)
         assert cost == 10.0
         assert status == cp.OPTIMAL
+
+    def test_solve_multi_parallel_handles_error(self) -> None:
+        """Test solve_multi_parallel continues when worker raises NonDCCPError."""
+        x = cp.Variable()
+        prob = cp.Problem(cp.Maximize(x**2), [x >= 1])
+        dccp_solver = AlwaysFailParallelDCCP(prob)
+
+        cost, var_values, status = dccp_solver._solve_multi_parallel(1, 1, None)
+
+        assert cost == np.inf
+        assert var_values is None
+        assert status == cp.INFEASIBLE
