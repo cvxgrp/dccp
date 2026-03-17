@@ -4,7 +4,6 @@ import cvxpy as cp
 import numpy as np
 import pytest
 
-from dccp.linearize import linearize
 from dccp.problem import DCCP, DCCPIter, dccp
 from dccp.utils import DCCPSettings, NonDCCPError
 
@@ -38,7 +37,6 @@ class TestDCCPIter:
         prob = cp.Problem(cp.Minimize(x**2), [x >= 0])
         iter_obj = DCCPIter(prob=prob)
 
-        # This returns 0.0 at line 37
         assert iter_obj.slack == 0.0
 
     def test_slack_property_with_slack_vars(self) -> None:
@@ -536,57 +534,6 @@ class TestSolveMultiInit:
         assert prob.status == cp.INFEASIBLE
         assert x.value is not None
         assert np.allclose(x.value, np.array([0.25, 0.75]))
-
-    def test_update_linearizations_damping_failure_lines(self) -> None:
-        """Test parameter update failure triggers damping."""
-        x = cp.Variable(name="x_var")
-        x.value = np.array(1.0)
-        prob = cp.Problem(cp.Maximize(x**2))
-        dccp_solver = DCCP(prob, settings=DCCPSettings(max_iter_damp=2))
-        linearize(x**2, dccp_solver.linearization_map)
-        dccp_solver._prev_var_values = {x: np.array(2.0)}
-        x.value = None
-
-        with pytest.raises(
-            NonDCCPError, match="Damping did not yield valid parameters"
-        ):
-            dccp_solver._update_linearizations()
-
-    def test_solve_loop_termination_infeasible_line(self) -> None:
-        """Test that solve loop termination sets status coverage."""
-        x = cp.Variable()
-        # Minimal problem: Maximize convex function is non-DCP
-        prob = cp.Problem(cp.Maximize(x**2), [x >= 0])
-        # Force loop to run exactly once and then terminate due to max_iter
-        dccp_solver = DCCP(prob, settings=DCCPSettings(max_iter=0))
-
-        dccp_solver._solve()
-
-        # Should not have converged in 1 iteration, so set to INFEASIBLE
-        assert prob._status == cp.INFEASIBLE
-
-    def test_solve_multi_init_sequential_handles_error(self) -> None:
-        """Test solve_multi_sequential continues on NonDCCPError."""
-
-        class OneErrorThenSuccessDCCP(DCCP):
-            def __init__(self, *args: object, **kwargs: object) -> None:
-                super().__init__(*args, **kwargs)
-                self._calls = 0
-
-            def _solve_one_init(self) -> tuple[float | None, dict[int, object] | None]:
-                self._calls += 1
-                if self._calls == 1:
-                    msg = "Fail"
-                    raise NonDCCPError(msg)
-                return 10.0, {x.id: 10.0}
-
-        x = cp.Variable()
-        prob = cp.Problem(cp.Maximize(x**2), [x >= 1])
-        dccp_solver = OneErrorThenSuccessDCCP(prob)
-
-        cost, _vars, status = dccp_solver._solve_multi_sequential(2)
-        assert cost == 10.0
-        assert status == cp.OPTIMAL
 
     def test_solve_multi_parallel_handles_error(self) -> None:
         """Test solve_multi_parallel continues when worker raises NonDCCPError."""

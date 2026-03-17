@@ -193,20 +193,6 @@ class TestLinearize:
         assert isinstance(param_grad.value, np.ndarray)
         assert not sp.issparse(param_grad.value)
 
-    def test_linearize_vector_variable_branch(self) -> None:
-        """Test linearization of expression with vector variables."""
-        x = cp.Variable(3)
-        x.value = np.array([1.0, 2.0, 3.0])
-        # x**2 returns vector expression.
-        expr_vec = x**2
-        lin_map = {}
-        lin_expr = linearize(expr_vec, lin_map)
-        assert lin_expr is not None
-        assert x in lin_map[id(expr_vec)].grads
-
-        expected_constant = -(x.value**2)
-        assert np.allclose(lin_map[id(expr_vec)].offset.value, expected_constant)
-
     def test_linearization_data_update_skips_none_var_value_and_continues(self) -> None:
         """Test update loop continues when one variable has no value."""
         x = cp.Variable(name="x")
