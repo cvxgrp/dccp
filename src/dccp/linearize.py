@@ -50,7 +50,6 @@ class LinearizationData:
             if g is None:
                 msg = f"Gradient for {var.name()} is None"
                 raise ValueError(msg)
-
             if sp.issparse(g):
                 g = g.toarray()
             param_grad.value = g
@@ -128,37 +127,6 @@ def _linearize_param(
     return tangent
 
 
-def _linearize_legacy(expr: cp.Expression) -> cp.Expression | None:
-    """Legacy Path: Linearize by rebuilding expression with constants."""
-    tangent = expr.value
-    try:
-        grad_map = expr.grad
-    except AttributeError as e:
-        msg = (
-            f"Cannot compute gradient for expression {expr}. "
-            f"This may indicate an incompatible cvxpy version. {expr_str}"
-        )
-        raise ValueError(msg) from e
-
-    for var in expr.variables():
-        if grad_map[var] is None:
-            return None
-        if var.ndim > 1:
-            temp = cp.reshape(
-                cp.vec(var - var.value, order=ORDER),
-                (var.shape[0] * var.shape[1], 1),
-                order=ORDER,
-            )
-            flattened = np.transpose(grad_map[var]) @ temp
-            tangent = tangent + cp.reshape(flattened, expr.shape, order=ORDER)
-        elif var.size > 1:
-            tangent = tangent + np.transpose(grad_map[var]) @ (var - var.value)
-        else:
-            tangent = tangent + grad_map[var] * (var - var.value)
-
-    return tangent
-
-
 def linearize(
     expr: cp.Expression, linearization_map: dict[int, LinearizationData] | None = None
 ) -> cp.Expression | None:
@@ -178,9 +146,9 @@ def linearize(
     expr : cvxpy.Expression
         An expression to linearize.
     linearization_map : dict, optional
-        A dictionary to cache linearization parameters. If provided, the function
-        uses a DPP-compliant approach where coefficients are CVXPY Parameters.
-        Defaults to None.
+        A dictionary to cache linearization parameters. If provided, repeated calls
+        for the same expression reuse parameters for in-place updates. If omitted,
+        a temporary cache is used for this call.
 
     Returns
     -------
@@ -212,9 +180,5 @@ def linearize(
     if expr.value is None:
         return None
 
-    # DPP Path
-    if linearization_map is not None:
-        return _linearize_param(expr, linearization_map)
-
-    # Legacy Path (Non-DPP, rebuilds expression with constants)
-    return _linearize_legacy(expr)
+    cache = linearization_map if linearization_map is not None else {}
+    return _linearize_param(expr, cache)
