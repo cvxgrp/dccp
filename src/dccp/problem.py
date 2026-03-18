@@ -23,6 +23,15 @@ logger = logging.getLogger("dccp")
 logger.setLevel(logging.INFO)
 
 
+def _set_problem_value(prob: cp.Problem, value: float) -> None:
+    """Set problem value via internal _value attribute.
+
+    Workaround since cvxpy's value property is read-only.
+    Directly sets the internal _value attribute which the value property reads.
+    """
+    prob._value = value  # noqa: SLF001  # type: ignore[reportPrivateUsage]
+
+
 @dataclass
 class DCCPIter:
     """Store results of a DCCP iteration."""
@@ -303,6 +312,7 @@ class DCCP:
         # write the solution back to the original problem
         if converged:
             self.prob_in._status = cp.OPTIMAL  # noqa: SLF001
+            _set_problem_value(self.prob_in, self.iter.prob.value)
             for var in self.prob_in.variables():
                 var.value = self.iter.prob.var_dict[var.name()].value
             return self.iter.cost
@@ -388,6 +398,7 @@ class DCCP:
 
         # Set the best solution
         self.prob_in._status = best_status  # noqa: SLF001
+        _set_problem_value(self.prob_in, best_cost)
         for var in self.prob_in.variables():
             if best_var_values and var.id in best_var_values:
                 var.value = best_var_values[var.id]
