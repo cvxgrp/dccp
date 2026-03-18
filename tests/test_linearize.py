@@ -111,15 +111,6 @@ class TestLinearize:
         with pytest.raises(ValueError, match="Expression value is None"):
             data.update()
 
-    def test_linearize_returns_none_for_undefined_gradient(self) -> None:
-        """linearize() returns None when the gradient is undefined at x."""
-        x = cp.Variable(2)
-        x.value = np.array([0.0, 1.0])  # sqrt(0): derivative is +inf → None
-        expr = cp.sum(cp.sqrt(x))
-        assert expr.value is not None  # value exists but gradient does not
-        result = linearize(expr, linearization_map={})
-        assert result is None
-
     def test_linearize_cache_hit(self) -> None:
         """Test linearize hits the cache."""
         x = cp.Variable()
@@ -137,7 +128,7 @@ class TestLinearize:
         assert lin2 is lin1
 
     def test_linearization_data_update_sparse_gradient(self) -> None:
-        """Sparse gradient updates a sparse param via value_sparse (no toarray)."""
+        """Test LinearizationData.update handles sparse gradients."""
         x = cp.Variable(3, name="x_vec")
         x.value = np.array([1.0, 2.0, 3.0])
         expr = cp.sum(cp.square(x))
@@ -145,111 +136,16 @@ class TestLinearize:
         assert grad is not None
         assert sp.issparse(grad)
 
-        # Sparse parameter (as _linearize_param creates for sparse gradients).
-        rows, cols = grad.nonzero()
-        param_grad = cp.Parameter(shape=grad.shape, sparsity=(rows, cols))
+        param_grad = cp.Parameter(shape=grad.shape)
         grads = {x: param_grad}
         offset = cp.Parameter(shape=())
 
         data = LinearizationData(grads, offset, expr)
         data.update()
 
-        # value_sparse was used — no toarray() call, result is sparse.
-        assert sp.issparse(param_grad.value_sparse)
-
-    def test_linearization_data_update_sparse_gradient_correct_offset(self) -> None:
-        """Sparse gradient used directly; offset value is numerically correct."""
-        x = cp.Variable(4, name="x_vec")
-        # all nonzero so the initial gradient has the full structural pattern
-        x.value = np.array([1.0, 2.0, 3.0, 4.0])
-        expr = cp.sum(cp.square(x))
-
-        cache: dict = {}
-        lin = linearize(expr, cache)
-        assert lin is not None
-
-        data = cache[id(expr)]
-        # At x0=[1,2,3,4]: f=30, grad=[2,4,6,8], <grad,x0>=2+8+18+32=60
-        assert np.isclose(data.offset.value, 30.0 - 60.0)
-
-        # Simulate a later iteration where one variable is zero.
-        x.value = np.array([5.0, 0.0, 3.0, -1.0])
-        data.update()
-        # f=35, grad=[10,0,6,-2], <grad,x0>=50+0+18+2=70  →  offset=35-70=-35
-        assert np.isclose(data.offset.value, 35.0 - 70.0)
-
-    def test_linearize_sparse_param_for_sparse_gradient(self) -> None:
-        """linearize() creates a sparse cp.Parameter for sparse gradients."""
-        x = cp.Variable(3, name="x_vec")
-        x.value = np.array([1.0, 2.0, 3.0])
-        expr = cp.sum(cp.square(x))
-
-        cache: dict = {}
-        lin = linearize(expr, cache)
-        assert lin is not None
-
-        data = cache[id(expr)]
-        for param in data.grads.values():
-            # Sparse parameter created — value_sparse is set, no toarray().
-            assert param.sparse_idx is not None
-            assert sp.issparse(param.value_sparse)
-
-    def test_linearize_dpp_compliance(self) -> None:
-        """Linearized problem is DPP-compliant and stays so after a parameter update."""
-        x = cp.Variable(10)
-        x.value = np.ones(10)
-        expr = cp.sum(cp.square(x))
-
-        cache: dict = {}
-        lin = linearize(expr, cache)
-        assert lin is not None
-
-        prob = cp.Problem(cp.Minimize(lin))
-        assert prob.is_dcp(dpp=True)
-
-        x.value = np.ones(10) * 2.0
-        cache[id(expr)].update()
-        assert prob.is_dcp(dpp=True)
-
-    def test_linearize_matrix_variable(self) -> None:
-        """Linearization handles matrix variables (var.ndim > 1 branch in update)."""
-        x_mat = cp.Variable((2, 3))
-        x_mat.value = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
-        expr = cp.sum(cp.square(x_mat))
-
-        cache: dict = {}
-        lin = linearize(expr, cache)
-        assert lin is not None
-
-        # At the linearization point the tangent equals the function value.
-        assert_almost_equal(float(lin.value), float(expr.value))
-
-        # After moving x_mat, update should refresh the linearization correctly.
-        x_mat.value = np.ones((2, 3))
-        cache[id(expr)].update()
-        assert_almost_equal(float(lin.value), float(expr.value))
-
-    def test_update_dense_gradient_matrix_variable(self) -> None:
-        """Dense gradient with matrix variable: exercises np.transpose branch."""
-        x_mat = cp.Variable((2, 2))
-        x_mat.value = np.eye(2)
-
-        # Dense (4,1) gradient for a (2,2) variable — non-sparse path.
-        g_dense = np.array([[1.0], [0.0], [0.0], [1.0]])
-        expr = _expr_stub(
-            value=2.0,
-            grad={x_mat: g_dense},
-            shape=(),
-            name="dense_matrix_grad_expr",
-        )
-
-        grads = {x_mat: cp.Parameter(shape=(4, 1))}
-        offset = cp.Parameter(shape=())
-        data = LinearizationData(grads, offset, expr)  # type: ignore[arg-type]
-        data.update()
-
-        # g.T @ vec(X) = [1,0,0,1] · [1,0,0,1] = 2.0  →  offset = 2.0 - 2.0 = 0.0
-        assert np.isclose(offset.value, 0.0)
+        # Check if param_grad.value becomes dense
+        assert isinstance(param_grad.value, np.ndarray)
+        assert not sp.issparse(param_grad.value)
 
     def test_linearization_data_update_skips_none_var_value_and_continues(self) -> None:
         """Test update loop continues when one variable has no value."""

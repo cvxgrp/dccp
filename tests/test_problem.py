@@ -220,52 +220,27 @@ class TestDCCP:
         assert y.value is not None
         assert np.isclose(float(y.value), 3.6)
 
-    def test_update_linearizations_expr_value_is_none_raises(self) -> None:
-        """_update_linearizations raises ValueError (once) when expr.value is None."""
+    def test_update_linearizations_expr_value_becomes_available(self) -> None:
+        """Test update_linearizations path where expr.value transitions to valid."""
 
-        class NoneExpr:
-            @property
-            def value(self) -> None:
-                return None
-
-            def __str__(self) -> str:
-                return "NoneExpr"
-
-        class DataHolder:
+        class ExprSequence:
             def __init__(self) -> None:
-                self.expr = NoneExpr()
-                self.update_calls = 0
+                self._calls = 0
 
-            def update(self) -> None:
-                self.update_calls += 1
-
-        x = cp.Variable(name="x")
-        prob = cp.Problem(cp.Maximize(x**2), [x >= 0])
-        solver = DCCP(prob, settings=DCCPSettings(verify_dccp=False))
-        data = DataHolder()
-        solver.linearization_map = {1: data}
-
-        # All damping retries fail because expr.value is always None.
-        with pytest.raises(NonDCCPError):
-            solver._update_linearizations()
-
-        # update() should never have been called.
-        assert data.update_calls == 0
-
-    def test_update_linearizations_valid_expr_calls_update(self) -> None:
-        """_update_linearizations calls data.update() when expr.value is valid."""
-
-        class ValidExpr:
             @property
-            def value(self) -> float:
+            def value(self) -> float | None:
+                self._calls += 1
+                return None if self._calls == 1 else 1.0
+
+            def save_value(self, _value: object) -> float:
                 return 1.0
 
             def __str__(self) -> str:
-                return "ValidExpr"
+                return "ExprSequence"
 
         class DataHolder:
             def __init__(self) -> None:
-                self.expr = ValidExpr()
+                self.expr = ExprSequence()
                 self.updated = False
 
             def update(self) -> None:

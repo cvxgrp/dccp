@@ -50,29 +50,24 @@ class LinearizationData:
             if g is None:
                 msg = f"Gradient for {var.name()} is None"
                 raise ValueError(msg)
+            if sp.issparse(g):
+                g = g.toarray()
+            param_grad.value = g
 
-            if sp.issparse(g) and param_grad.sparse_idx is not None:
-                s_rows, s_cols = param_grad.sparse_idx
-                g_vals = np.asarray(g[s_rows, s_cols]).flatten()
-                param_grad.value_sparse = sp.coo_array(
-                    (g_vals, (s_rows, s_cols)), shape=g.shape
-                )
-            else:
-                param_grad.value = g.toarray() if sp.issparse(g) else g
-
+            # Accumulate <grad, var_val>
             if var.value is not None:
+                # Logic mirroring _linearize_term construction
                 if var.ndim > 1:
-                    # Matrix variable: flatten to column vector first.
+                    # Matrix variable
                     temp = var.value.reshape(-1, 1, order=ORDER)
-                    g_t = g.T if sp.issparse(g) else np.transpose(g)
+                    g_t = np.transpose(g)
                     flattened = g_t @ temp
-                    term = np.reshape(flattened, self.expr.shape, order=ORDER)
+                    term = flattened.reshape(self.expr.shape, order=ORDER)
                 elif var.size > 1:
-                    # Vector variable: O(nnz) SPMV if sparse, O(n) BLAS if dense.
-                    g_t = g.T if sp.issparse(g) else np.transpose(g)
-                    term = g_t @ var.value
+                    # Vector variable
+                    term = np.transpose(g) @ var.value
                 else:
-                    # Scalar variable: CVXPY always returns float grad here.
+                    # Scalar variable
                     term = g * var.value
 
                 dot_product += term
@@ -103,15 +98,8 @@ def _linearize_param(
         if g is None:
             return None
 
-        # For sparse gradients, create a sparse parameter so that update()
-        # can use value_sparse and avoid any toarray() call entirely.
-        if sp.issparse(g):
-            rows, cols = g.nonzero()
-            param = cp.Parameter(g.shape, sparsity=(rows, cols))
-            param.value_sparse = sp.coo_array(g)
-        else:
-            param = cp.Parameter(g.shape)
-            param.value = g
+        # Create parameter matching gradient shape
+        param = cp.Parameter(g.shape)
         param_grads[var] = param
 
         # Build term (inlined logic)
