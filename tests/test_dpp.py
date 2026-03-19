@@ -1,11 +1,14 @@
 """Tests for DPP compliance and benchmarking."""
 
+import logging
 import time
 
 import cvxpy as cp
 import numpy as np
 
 from dccp.linearize import LinearizationData, linearize
+
+_logger = logging.getLogger(__name__)
 
 
 def test_linearization_data_update() -> None:
@@ -57,10 +60,7 @@ def test_benchmark_dpp_vs_rebuild() -> None:
         x.value += 0.01
         lin = linearize(expr)
         prob = cp.Problem(cp.Minimize(lin))
-        try:
-            prob.get_problem_data(cp.SCS)
-        except Exception:  # noqa: BLE001
-            pass
+        prob.get_problem_data(cp.CLARABEL)
     end_time = time.time()
     rebuild_time = end_time - start_time
 
@@ -71,10 +71,7 @@ def test_benchmark_dpp_vs_rebuild() -> None:
     assert prob_dpp.is_dcp(dpp=True)  # Confirm it is DPP compliant
 
     # Pre-compile
-    try:
-        prob_dpp.get_problem_data(cp.SCS)
-    except Exception:  # noqa: BLE001
-        pass
+    prob_dpp.get_problem_data(cp.CLARABEL)
 
     data = cache[id(expr)]
 
@@ -82,10 +79,7 @@ def test_benchmark_dpp_vs_rebuild() -> None:
     for _ in range(iterations):
         x.value += 0.01
         data.update()  # Just update parameters
-        try:
-            prob_dpp.get_problem_data(cp.SCS)
-        except Exception:  # noqa: BLE001
-            pass
+        prob_dpp.get_problem_data(cp.CLARABEL)
     end_time = time.time()
     update_time = end_time - start_time
 
