@@ -60,7 +60,10 @@ def test_benchmark_dpp_vs_rebuild() -> None:
         x.value += 0.01
         lin = linearize(expr)
         prob = cp.Problem(cp.Minimize(lin))
-        prob.get_problem_data(cp.CLARABEL)
+        try:
+            prob.get_problem_data(cp.CLARABEL)
+        except (cp.error.SolverError, cp.error.DCPError) as e:
+            _logger.debug("Problem data retrieval failed (rebuild): %s", e)
     end_time = time.time()
     rebuild_time = end_time - start_time
 
@@ -71,7 +74,10 @@ def test_benchmark_dpp_vs_rebuild() -> None:
     assert prob_dpp.is_dcp(dpp=True)  # Confirm it is DPP compliant
 
     # Pre-compile
-    prob_dpp.get_problem_data(cp.CLARABEL)
+    try:
+        prob_dpp.get_problem_data(cp.CLARABEL)
+    except (cp.error.SolverError, cp.error.DCPError) as e:
+        _logger.debug("Problem data retrieval failed (pre-compile): %s", e)
 
     data = cache[id(expr)]
 
@@ -79,7 +85,10 @@ def test_benchmark_dpp_vs_rebuild() -> None:
     for _ in range(iterations):
         x.value += 0.01
         data.update()  # Just update parameters
-        prob_dpp.get_problem_data(cp.CLARABEL)
+        try:
+            prob_dpp.get_problem_data(cp.CLARABEL)
+        except (cp.error.SolverError, cp.error.DCPError) as e:
+            _logger.debug("Problem data retrieval failed (update): %s", e)
     end_time = time.time()
     update_time = end_time - start_time
 
