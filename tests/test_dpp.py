@@ -1,6 +1,5 @@
 """Tests for DPP compliance and benchmarking."""
 
-import contextlib
 import time
 
 import cvxpy as cp
@@ -58,8 +57,10 @@ def test_benchmark_dpp_vs_rebuild() -> None:
         x.value += 0.01
         lin = linearize(expr)
         prob = cp.Problem(cp.Minimize(lin))
-        with contextlib.suppress(Exception):
+        try:
             prob.get_problem_data(cp.SCS)
+        except Exception:  # noqa: BLE001
+            pass
     end_time = time.time()
     rebuild_time = end_time - start_time
 
@@ -70,8 +71,10 @@ def test_benchmark_dpp_vs_rebuild() -> None:
     assert prob_dpp.is_dcp(dpp=True)  # Confirm it is DPP compliant
 
     # Pre-compile
-    with contextlib.suppress(Exception):
+    try:
         prob_dpp.get_problem_data(cp.SCS)
+    except Exception:  # noqa: BLE001
+        pass
 
     data = cache[id(expr)]
 
@@ -79,8 +82,10 @@ def test_benchmark_dpp_vs_rebuild() -> None:
     for _ in range(iterations):
         x.value += 0.01
         data.update()  # Just update parameters
-        with contextlib.suppress(Exception):
+        try:
             prob_dpp.get_problem_data(cp.SCS)
+        except Exception:  # noqa: BLE001
+            pass
     end_time = time.time()
     update_time = end_time - start_time
 
