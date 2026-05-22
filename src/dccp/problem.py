@@ -8,7 +8,8 @@ from concurrent.futures import (  # pylint: disable=no-name-in-module
     as_completed,
 )
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from numbers import Number
+from typing import TYPE_CHECKING, Any, TypeAlias
 
 import cvxpy as cp
 import numpy as np
@@ -25,6 +26,10 @@ if TYPE_CHECKING:
 logger = logging.getLogger("dccp")
 logger.setLevel(logging.INFO)
 
+ProblemValue: TypeAlias = (
+    Number | np.generic | complex | str | bytes | memoryview | None
+)
+
 
 def _set_problem_status(prob: cp.Problem, status: str) -> None:
     """Set problem status via internal _status attribute.
@@ -33,6 +38,15 @@ def _set_problem_status(prob: cp.Problem, status: str) -> None:
     Directly sets the internal _status attribute which the status property reads.
     """
     prob._status = status  # noqa: SLF001  # type: ignore[reportPrivateUsage]
+
+
+def _set_problem_value(prob: cp.Problem, value: ProblemValue) -> None:
+    """Set problem value via internal _value attribute.
+
+    Workaround since cvxpy's value property is read-only.
+    Directly sets the internal _value attribute which the value property reads.
+    """
+    prob._value = value  # noqa: SLF001  # type: ignore[reportPrivateUsage]
 
 
 @dataclass
@@ -311,6 +325,7 @@ class DCCP:
         # write the solution back to the original problem
         if converged:
             _set_problem_status(self.prob_in, cp.OPTIMAL)
+            _set_problem_value(self.prob_in, self.iter.prob.value)
             for var in self.prob_in.variables():
                 var.value = self.iter.prob.var_dict[var.name()].value
             return self.iter.cost
@@ -396,6 +411,7 @@ class DCCP:
 
         # Set the best solution
         _set_problem_status(self.prob_in, best_status)
+        _set_problem_value(self.prob_in, best_cost)
         for var in self.prob_in.variables():
             if best_var_values and var.id in best_var_values:
                 var.value = best_var_values[var.id]
