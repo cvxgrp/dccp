@@ -11,6 +11,52 @@ import scipy.sparse as sp
 from dccp.utils import ORDER
 
 
+class GradientSparsityPatternError(ValueError):
+    """Raised when a cached sparse gradient parameter needs a wider pattern."""
+
+
+def _gradient_parameter(g: object) -> cp.Parameter:
+    """Create a parameter that preserves sparse gradients when possible."""
+    if sp.issparse(g):
+        rows, cols = g.nonzero()
+        return cp.Parameter(g.shape, sparsity=(rows, cols))
+    return cp.Parameter(g.shape)
+
+
+def _sparse_value_for_parameter(
+    g: sp.spmatrix | sp.sparray, param: cp.Parameter
+) -> sp.coo_array:
+    """Return ``g`` as a COO value matching ``param``'s sparse pattern."""
+    rows, cols = param.sparse_idx
+    value = g.tocsr()
+    allowed = set(zip(rows.tolist(), cols.tolist(), strict=True))
+
+    value_rows, value_cols = value.nonzero()
+    if any(
+        coord not in allowed
+        for coord in zip(value_rows.tolist(), value_cols.tolist(), strict=True)
+    ):
+        msg = (
+            "Gradient sparsity pattern changed after linearization cache creation. "
+            "Rebuild the cached linearization to use the new pattern."
+        )
+        raise GradientSparsityPatternError(msg)
+
+    data = np.asarray(value[rows, cols]).reshape(-1)
+    return sp.coo_array((data, (rows, cols)), shape=g.shape)
+
+
+def _set_gradient_value(param: cp.Parameter, g: object) -> None:
+    """Set a gradient parameter value, preserving sparse storage when available."""
+    if sp.issparse(g):
+        if getattr(param, "sparse_idx", None) is not None:
+            param.value_sparse = _sparse_value_for_parameter(g, param)
+        else:
+            param.value = g.toarray()
+    else:
+        param.value = g
+
+
 @dataclass
 class LinearizationData:
     """Cache for linearization parameters of an expression.
@@ -50,9 +96,7 @@ class LinearizationData:
             if g is None:
                 msg = f"Gradient for {var.name()} is None"
                 raise ValueError(msg)
-            if sp.issparse(g):
-                g = g.toarray()
-            param_grad.value = g
+            _set_gradient_value(param_grad, g)
 
             # Accumulate <grad, var_val>
             if var.value is not None:
@@ -99,7 +143,7 @@ def _linearize_param(
             return None
 
         # Create parameter matching gradient shape
-        param = cp.Parameter(g.shape)
+        param = _gradient_parameter(g)
         param_grads[var] = param
 
         # Build term (inlined logic)

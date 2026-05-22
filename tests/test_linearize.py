@@ -8,7 +8,7 @@ import pytest
 import scipy.sparse as sp
 
 from dccp import linearize
-from dccp.linearize import LinearizationData
+from dccp.linearize import GradientSparsityPatternError, LinearizationData
 from tests.utils import assert_almost_equal
 
 
@@ -128,7 +128,7 @@ class TestLinearize:
         assert lin2 is lin1
 
     def test_linearization_data_update_sparse_gradient(self) -> None:
-        """Test LinearizationData.update handles sparse gradients."""
+        """Test LinearizationData.update preserves sparse gradients."""
         x = cp.Variable(3, name="x_vec")
         x.value = np.array([1.0, 2.0, 3.0])
         expr = cp.sum(cp.square(x))
@@ -136,16 +136,45 @@ class TestLinearize:
         assert grad is not None
         assert sp.issparse(grad)
 
-        param_grad = cp.Parameter(shape=grad.shape)
+        rows, cols = grad.nonzero()
+        param_grad = cp.Parameter(shape=grad.shape, sparsity=(rows, cols))
         grads = {x: param_grad}
         offset = cp.Parameter(shape=())
 
         data = LinearizationData(grads, offset, expr)
         data.update()
 
-        # Check if param_grad.value becomes dense
-        assert isinstance(param_grad.value, np.ndarray)
-        assert not sp.issparse(param_grad.value)
+        assert sp.issparse(param_grad.value_sparse)
+        assert np.array_equal(param_grad.value_sparse.row, rows)
+        assert np.array_equal(param_grad.value_sparse.col, cols)
+        assert_almost_equal(param_grad.value_sparse.toarray(), grad.toarray())
+
+    def test_linearize_creates_sparse_gradient_parameters(self) -> None:
+        """Test cached linearization parameters preserve sparse gradients."""
+        x = cp.Variable(3, name="x_vec")
+        x.value = np.array([1.0, 2.0, 3.0])
+        expr = cp.sum(cp.square(x))
+        cache = {}
+
+        lin = linearize(expr, cache)
+
+        assert lin is not None
+        param_grad = cache[id(expr)].grads[x]
+        assert getattr(param_grad, "sparse_idx", None) is not None
+        assert sp.issparse(param_grad.value_sparse)
+
+    def test_sparse_gradient_pattern_change_raises(self) -> None:
+        """Test sparse updates detect new nonzeros outside the cached pattern."""
+        x = cp.Variable(3, name="x_vec")
+        x.value = np.array([0.0, 2.0, 0.0])
+        expr = cp.sum(cp.square(x))
+        cache = {}
+
+        assert linearize(expr, cache) is not None
+
+        x.value = np.array([1.0, 2.0, 3.0])
+        with pytest.raises(GradientSparsityPatternError):
+            cache[id(expr)].update()
 
     def test_linearization_data_update_skips_none_var_value_and_continues(self) -> None:
         """Test update loop continues when one variable has no value."""

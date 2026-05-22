@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-You should first install [CVXPY 1.5](http://www.cvxpy.org/) or greater.
+You should first install [CVXPY 1.6.7](http://www.cvxpy.org/) or greater.
 
 ## Quick Install
 

@@ -18,7 +18,7 @@ maintainers = [
     { name = "Stefan de Lange", email = "langestefan@msn.com" },
 ]
 requires-python = ">=3.11"
-dependencies = ["cvxpy>=1.5.4"]
+dependencies = ["cvxpy>=1.6.7"]
 keywords = ["convex optimization", "cvxpy", "mathematical programming"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",

@@ -17,6 +17,7 @@ from cvxpy.constraints.zero import Equality
 
 from .constraint import convexify_constr
 from .initialization import initialize
+from .linearize import GradientSparsityPatternError
 from .objective import convexify_obj
 from .utils import DCCPSettings, NonDCCPError, is_dccp
 
@@ -235,6 +236,8 @@ class DCCP:
                     data.update()
 
                 params_updated = True
+            except GradientSparsityPatternError:
+                raise
             except Exception as e:  # noqa: BLE001
                 logger.debug("Parameter update failed: %s. Applying damping.", e)
                 self._apply_damping()
@@ -247,11 +250,23 @@ class DCCP:
             )
             raise NonDCCPError(msg)
 
+    def _try_update_cached_subproblem(self) -> bool:
+        """Update cached linearizations, returning False if cache must be rebuilt."""
+        if not self.linearization_map:
+            return False
+
+        try:
+            self._update_linearizations()
+        except GradientSparsityPatternError:
+            self.linearization_map = {}
+            return False
+
+        self._store_previous_values()
+        return True
+
     def _construct_subproblem(self) -> None:
         """Construct the DCCP sub-problem."""
-        if self.linearization_map:
-            self._update_linearizations()
-            self._store_previous_values()
+        if self._try_update_cached_subproblem():
             return
 
         # First time construction
