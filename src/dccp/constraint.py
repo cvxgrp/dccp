@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 import cvxpy as cp
 
-from dccp.linearize import linearize
+from dccp.linearize import LinearizationData, linearize
 
 
 @dataclass
@@ -24,7 +24,10 @@ class ConvexConstraint:
     domain: list[cp.Constraint]
 
 
-def convexify_constr(constr: cp.Constraint) -> ConvexConstraint | None:
+def convexify_constr(
+    constr: cp.Constraint,
+    linearization_map: dict[int, LinearizationData] | None = None,
+) -> ConvexConstraint | None:
     """Convexify a constraint for DCCP problems.
 
     For DCP constraints, returns the constraint unchanged.
@@ -35,6 +38,8 @@ def convexify_constr(constr: cp.Constraint) -> ConvexConstraint | None:
     ----------
     constr : cp.Constraint
         The constraint to convexify.
+    linearization_map : dict, optional
+        Map for caching linearization parameters.
 
     Returns
     -------
@@ -58,7 +63,7 @@ def convexify_constr(constr: cp.Constraint) -> ConvexConstraint | None:
 
     # left hand concave
     if constr.args[0].curvature == "CONCAVE":
-        left = linearize(constr.args[0])
+        left = linearize(constr.args[0], linearization_map)
         if left is None:
             return None
         dom.extend(list(constr.args[0].domain))
@@ -67,7 +72,7 @@ def convexify_constr(constr: cp.Constraint) -> ConvexConstraint | None:
 
     # right hand convex
     if constr.args[1].curvature == "CONVEX":
-        right = linearize(constr.args[1])
+        right = linearize(constr.args[1], linearization_map)
         if right is None:
             return None
         dom.extend(list(constr.args[1].domain))

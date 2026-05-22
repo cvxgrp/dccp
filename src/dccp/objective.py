@@ -4,12 +4,15 @@ import logging
 
 import cvxpy as cp
 
-from dccp.linearize import linearize
+from dccp.linearize import LinearizationData, linearize
 
 logger = logging.getLogger("dccp")
 
 
-def convexify_obj(obj: cp.Minimize | cp.Maximize) -> cp.Minimize | None:
+def convexify_obj(
+    obj: cp.Minimize | cp.Maximize,
+    linearization_map: dict[int, LinearizationData] | None = None,
+) -> cp.Minimize | None:
     """Convexify an objective function for DCCP problems.
 
     Linearize non-DCP objectives. If the objective is already DCP, returns it unchanged.
@@ -20,6 +23,8 @@ def convexify_obj(obj: cp.Minimize | cp.Maximize) -> cp.Minimize | None:
     ----------
     obj : cp.Minimize | cp.Maximize
         Objective of a problem to be convexified.
+    linearization_map : dict, optional
+        Map for caching linearization parameters.
 
     Returns
     -------
@@ -36,7 +41,7 @@ def convexify_obj(obj: cp.Minimize | cp.Maximize) -> cp.Minimize | None:
         return cp.Minimize(expr)
 
     # linearize the objective expression. If it fails, the gradient is not defined
-    lin = linearize(expr)
+    lin = linearize(expr, linearization_map)
     if lin is not None:
         return cp.Minimize(lin)
     return None

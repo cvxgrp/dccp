@@ -8,6 +8,14 @@ from dccp.problem import DCCP, DCCPIter, dccp
 from dccp.utils import DCCPSettings, NonDCCPError
 
 
+class AlwaysFailParallelDCCP(DCCP):
+    """DCCP subclass that always raises in _solve_one_init."""
+
+    def _solve_one_init(self) -> tuple[float | None, dict[int, object] | None]:
+        msg = "Worker fail"
+        raise NonDCCPError(msg)
+
+
 class TestDCCPIter:
     """Test the DCCPIter class."""
 
@@ -128,6 +136,19 @@ class TestDCCPIter:
         if result is not None:
             assert iter_obj.cost == result
 
+    def test_solve_method_returns_none_for_nonnumeric_solver_result(self) -> None:
+        """Test solve returns None when underlying solver result is non-numeric."""
+
+        class DummyProblem:
+            def solve(self, **_kwargs: object) -> object:
+                return {"status": "ok"}
+
+        iter_obj = DCCPIter(prob=DummyProblem())  # type: ignore[arg-type]
+        result = iter_obj.solve()
+
+        assert result is None
+        assert iter_obj.k == 1
+
 
 class TestDCCP:
     """Test the DCCP class."""
@@ -175,6 +196,130 @@ class TestDCCP:
         assert dccp_solver.conf.max_slack == 1e-2
         assert dccp_solver.conf.seed == 42
         assert dccp_solver.conf.verify_dccp is False
+
+    def test_store_and_damping_skip_none_variable(self) -> None:
+        """Test store and damping both skip variables with None value."""
+        x = cp.Variable(name="x")
+        y = cp.Variable(name="y")
+        prob = cp.Problem(cp.Maximize(x**2 + y**2), [y >= 0])
+
+        solver = DCCP(prob, settings=DCCPSettings(verify_dccp=False))
+        x.value = None
+        y.value = np.array(3.0)
+        solver._prev_var_values = {}
+
+        solver._store_previous_values()
+
+        assert x not in solver._prev_var_values
+        assert y in solver._prev_var_values
+
+        y.value = np.array(4.0)
+        solver._prev_var_values = {y: np.array(2.0)}
+        solver._apply_damping()
+
+        assert y.value is not None
+        assert np.isclose(float(y.value), 3.6)
+
+    def test_update_linearizations_expr_value_becomes_available(self) -> None:
+        """Test update_linearizations path where expr.value transitions to valid."""
+
+        class ExprSequence:
+            def __init__(self) -> None:
+                self._calls = 0
+
+            @property
+            def value(self) -> float | None:
+                self._calls += 1
+                return None if self._calls == 1 else 1.0
+
+            def save_value(self, _value: object) -> float:
+                return 1.0
+
+            def __str__(self) -> str:
+                return "ExprSequence"
+
+        class DataHolder:
+            def __init__(self) -> None:
+                self.expr = ExprSequence()
+                self.updated = False
+
+            def update(self) -> None:
+                self.updated = True
+
+        x = cp.Variable(name="x")
+        prob = cp.Problem(cp.Maximize(x**2), [x >= 0])
+        solver = DCCP(prob, settings=DCCPSettings(verify_dccp=False))
+        data = DataHolder()
+        solver.linearization_map = {1: data}
+
+        solver._update_linearizations()
+
+        assert data.updated
+
+    def test_solve_tau_none_skips_tau_update_branch(self) -> None:
+        """Test solve loop handles None tau value without attempting tau update."""
+
+        class SolverNoConstruct(DCCP):
+            def _construct_subproblem(self) -> None:
+                return
+
+        class IterNoTauUse:
+            def __init__(self, tau: cp.Parameter) -> None:
+                self.tau = tau
+                self.k = 0
+                self.cost = np.inf
+
+            @property
+            def cost_no_slack(self) -> float:
+                return np.inf
+
+            @property
+            def slack(self) -> float:
+                return 1.0
+
+            def solve(self, **_kwargs: object) -> None:
+                self.k += 1
+
+        x = cp.Variable(name="x")
+        prob = cp.Problem(cp.Maximize(x**2), [x >= 0])
+        solver = SolverNoConstruct(
+            prob, settings=DCCPSettings(verify_dccp=False, max_iter=0)
+        )
+        solver.iter = IterNoTauUse(solver.tau)  # type: ignore[assignment]
+        solver.iter.tau.value = None
+
+        result = solver._solve()
+
+        assert result == np.inf
+        assert prob.status == cp.INFEASIBLE
+
+    def test_construct_subproblem_objective_damping_loop_runs(self) -> None:
+        """Test objective damping loop runs before failing to convexify objective."""
+        x = cp.Variable(name="x")
+        prob = cp.Problem(cp.Maximize(x**2), [x >= 0])
+        solver = DCCP(prob, settings=DCCPSettings(verify_dccp=False, max_iter_damp=1))
+        solver._prev_var_values = {x: np.array(1.0)}
+        x.value = None
+
+        with pytest.raises(
+            NonDCCPError, match="Damping did not yield a convexified objective"
+        ):
+            solver._construct_subproblem()
+
+    def test_construct_subproblem_constraint_damping_loop_runs(self) -> None:
+        """Test constraint damping loop retries convexification until feasible."""
+        x = cp.Variable(name="x")
+        y = cp.Variable(name="y")
+        prob = cp.Problem(cp.Maximize(y**2), [cp.sqrt(x) <= y])
+        solver = DCCP(prob, settings=DCCPSettings(verify_dccp=False))
+
+        x.value = np.array(-1.0)
+        y.value = np.array(1.0)
+        solver._prev_var_values = {x: np.array(1.0), y: np.array(1.0)}
+
+        solver._construct_subproblem()
+
+        assert solver.iter.vars_slack
 
 
 class TestDccpFunction:
@@ -316,6 +461,23 @@ class TestSolveMultiInit:
         assert x.id in var_values  # Keyed by variable id
         assert solver.prob_in.status == cp.OPTIMAL
 
+    def test_solve_one_init_returns_none_when_not_optimal(self) -> None:
+        """Test _solve_one_init returns (None, None) for non-optimal status."""
+
+        class NonOptimalDCCP(DCCP):
+            def _solve(self) -> float:
+                self.prob_in._status = cp.INFEASIBLE
+                return np.inf
+
+        x = cp.Variable(2)
+        prob = cp.Problem(cp.Maximize(cp.norm(x)), [x >= 0, x <= 1])
+        solver = NonOptimalDCCP(prob, settings=DCCPSettings(verify_dccp=False, seed=42))
+
+        cost, var_values = solver._solve_one_init()
+
+        assert cost is None
+        assert var_values is None
+
     def test_solve_multi_sequential(self) -> None:
         """Test _solve_multi_sequential helper method."""
         x = cp.Variable(2)
@@ -352,3 +514,35 @@ class TestSolveMultiInit:
 
         assert result is not None
         assert prob.status == cp.OPTIMAL
+
+    def test_solve_multi_init_restores_original_values_if_no_best_solution(
+        self,
+    ) -> None:
+        """Test solve_multi_init restores original variable values on failure."""
+        x = cp.Variable(2)
+        prob = cp.Problem(cp.Maximize(cp.norm(x)), [x >= 2, x <= 1])
+        x.value = np.array([0.25, 0.75])
+
+        solver = DCCP(
+            prob,
+            settings=DCCPSettings(verify_dccp=False, seed=42, max_iter=3),
+        )
+
+        result = solver.solve_multi_init(2, parallel=False)
+
+        assert np.isneginf(result)
+        assert prob.status == cp.INFEASIBLE
+        assert x.value is not None
+        assert np.allclose(x.value, np.array([0.25, 0.75]))
+
+    def test_solve_multi_parallel_handles_error(self) -> None:
+        """Test solve_multi_parallel continues when worker raises NonDCCPError."""
+        x = cp.Variable()
+        prob = cp.Problem(cp.Maximize(x**2), [x >= 1])
+        dccp_solver = AlwaysFailParallelDCCP(prob)
+
+        cost, var_values, status = dccp_solver._solve_multi_parallel(1, 1, None)
+
+        assert cost == np.inf
+        assert var_values is None
+        assert status == cp.INFEASIBLE

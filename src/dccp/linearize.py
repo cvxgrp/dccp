@@ -1,12 +1,179 @@
 """Linearization of cvxpy expressions."""
 
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import cast
+
 import cvxpy as cp
 import numpy as np
+import scipy.sparse as sp
 
 from dccp.utils import ORDER
 
 
-def linearize(expr: cp.Expression) -> cp.Expression | None:
+class GradientSparsityPatternError(ValueError):
+    """Raised when a cached sparse gradient parameter needs a wider pattern."""
+
+
+def _gradient_parameter(g: object) -> cp.Parameter:
+    """Create a parameter that preserves sparse gradients when possible."""
+    if isinstance(g, sp.csc_array):
+        rows, cols = g.nonzero()
+        return cp.Parameter(g.shape, sparsity=(rows, cols))
+    dense_g = cast("np.ndarray", g)
+    return cp.Parameter(dense_g.shape)
+
+
+def _sparse_value_for_parameter(g: sp.csc_array, param: cp.Parameter) -> sp.coo_array:
+    """Return ``g`` as a COO value matching ``param``'s sparse pattern."""
+    rows, cols = cast("tuple[np.ndarray, np.ndarray]", param.sparse_idx)
+    value = g.tocsr()
+    allowed = set(zip(rows.tolist(), cols.tolist(), strict=True))
+
+    value_rows, value_cols = value.nonzero()
+    if any(
+        coord not in allowed
+        for coord in zip(value_rows.tolist(), value_cols.tolist(), strict=True)
+    ):
+        msg = (
+            "Gradient sparsity pattern changed after linearization cache creation. "
+            "Rebuild the cached linearization to use the new pattern."
+        )
+        raise GradientSparsityPatternError(msg)
+
+    data = np.asarray(value[rows, cols]).reshape(-1)
+    return sp.coo_array((data, (rows, cols)), shape=g.shape)
+
+
+def _set_gradient_value(param: cp.Parameter, g: object) -> None:
+    """Set a gradient parameter value, preserving sparse storage when available."""
+    if isinstance(g, sp.csc_array):
+        if getattr(param, "sparse_idx", None) is not None:
+            param.value_sparse = _sparse_value_for_parameter(g, param)
+        else:
+            param.value = g.toarray()
+    else:
+        param.value = g
+
+
+@dataclass
+class LinearizationData:
+    """Cache for linearization parameters of an expression.
+
+    Attributes
+    ----------
+    grads : dict[cp.Variable, cp.Parameter]
+        A mapping from variables to their gradients at the linearization point.
+    offset : cp.Parameter
+        The bias term (f(x0) - <grad, x0>) for the linearization.
+    expr : cp.Expression
+        The original expression being linearized.
+    tangent_expr : cp.Expression | None
+        The cached tangent expression (constructed from parameters).
+
+    """
+
+    grads: dict[cp.Variable, cp.Parameter]
+    offset: cp.Parameter
+    expr: cp.Expression
+    tangent_expr: cp.Expression | None = None
+
+    def update(self) -> None:
+        """Update the parameters with current variable values."""
+        if self.expr.value is None:
+            msg = "Expression value is None"
+            raise ValueError(msg)
+
+        # Fetch gradient map
+        grad_map = self.expr.grad
+
+        # Calculate term <grad, x0>
+        dot_product = 0.0
+
+        for var, param_grad in self.grads.items():
+            g = grad_map[var]
+            if g is None:
+                msg = f"Gradient for {var.name()} is None"
+                raise ValueError(msg)
+            _set_gradient_value(param_grad, g)
+
+            # Accumulate <grad, var_val>
+            if var.value is not None:
+                # Logic mirroring _linearize_term construction
+                if var.ndim > 1:
+                    # Matrix variable
+                    temp = var.value.reshape(-1, 1, order=ORDER)
+                    g_t = np.transpose(g)
+                    flattened = g_t @ temp
+                    term = flattened.reshape(self.expr.shape, order=ORDER)
+                elif var.size > 1:
+                    # Vector variable
+                    term = np.transpose(g) @ var.value
+                else:
+                    # Scalar variable
+                    term = g * var.value
+
+                dot_product += term
+
+        # Update offset: f(x0) - <grad, x0>
+        val = self.expr.value - dot_product
+        if self.expr.shape == () and np.ndim(val) > 0 and val.size == 1:
+            val = val.item()
+        self.offset.value = val
+
+
+def _linearize_param(
+    expr: cp.Expression, linearization_map: dict[int, LinearizationData]
+) -> cp.Expression | None:
+    """DPP Path: Linearize using cached parameters."""
+    if id(expr) in linearization_map:
+        return linearization_map[id(expr)].tangent_expr
+
+    grad_map = expr.grad
+    param_grads = {}
+
+    # Create one offset parameter matching expression shape
+    param_offset = cp.Parameter(expr.shape)
+    tangent = param_offset
+
+    for var in expr.variables():
+        g = grad_map[var]
+        if g is None:
+            return None
+
+        # Create parameter matching gradient shape
+        param = _gradient_parameter(g)
+        param_grads[var] = param
+
+        # Build term (inlined logic)
+        if var.ndim > 1:
+            temp = cp.reshape(
+                cp.vec(var, order=ORDER),
+                (var.shape[0] * var.shape[1], 1),
+                order=ORDER,
+            )
+            flattened = cp.transpose(param) @ temp
+            term = cp.reshape(flattened, expr.shape, order=ORDER)
+        elif var.size > 1:
+            term = cp.transpose(param) @ var
+        else:
+            term = param * var
+
+        tangent = tangent + term
+
+    # Store in cache
+    data = LinearizationData(param_grads, param_offset, expr, tangent)
+    linearization_map[id(expr)] = data
+
+    # Populate initial values
+    data.update()
+    return tangent
+
+
+def linearize(
+    expr: cp.Expression, linearization_map: dict[int, LinearizationData] | None = None
+) -> cp.Expression | None:
     """Return the tangent approximation to the expression.
 
     Linearize non-convex CVXPY expressions using first-order Taylor expansion around
@@ -22,6 +189,10 @@ def linearize(expr: cp.Expression) -> cp.Expression | None:
     ----------
     expr : cvxpy.Expression
         An expression to linearize.
+    linearization_map : dict, optional
+        A dictionary to cache linearization parameters. If provided, repeated calls
+        for the same expression reuse parameters for in-place updates. If omitted,
+        a temporary cache is used for this call.
 
     Returns
     -------
@@ -50,35 +221,8 @@ def linearize(expr: cp.Expression) -> cp.Expression | None:
         )
         raise ValueError(msg)
 
-    # no numeric point to linearize at yet; let caller try damping
     if expr.value is None:
         return None
 
-    tangent = expr.value
-    try:
-        grad_map = expr.grad
-    except AttributeError as e:
-        msg = (
-            f"Cannot compute gradient for expression {expr}. "
-            f"This may indicate an incompatible cvxpy version. {expr_str}"
-        )
-        raise ValueError(msg) from e
-
-    # compute contribution from each variable to the gradients
-    for var in expr.variables():
-        if grad_map[var] is None:
-            return None
-        if var.ndim > 1:
-            temp = cp.reshape(
-                cp.vec(var - var.value, order=ORDER),
-                (var.shape[0] * var.shape[1], 1),
-                order=ORDER,
-            )
-            flattened = np.transpose(grad_map[var]) @ temp
-            tangent = tangent + cp.reshape(flattened, expr.shape, order=ORDER)
-        elif var.size > 1:
-            tangent = tangent + np.transpose(grad_map[var]) @ (var - var.value)
-        else:
-            tangent = tangent + grad_map[var] * (var - var.value)
-
-    return tangent  # type: ignore[reportReturnType]
+    cache = linearization_map if linearization_map is not None else {}
+    return _linearize_param(expr, cache)

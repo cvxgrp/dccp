@@ -17,6 +17,7 @@ from cvxpy.constraints.zero import Equality
 
 from .constraint import convexify_constr
 from .initialization import initialize
+from .linearize import GradientSparsityPatternError
 from .objective import convexify_obj
 from .utils import DCCPSettings, NonDCCPError, is_dccp
 
@@ -183,6 +184,7 @@ class DCCP:
 
         initialize(prob, **init_kwargs)
         self.iter = DCCPIter(prob=prob, tau=self.tau)
+        self.linearization_map = {}  # type: ignore[var-annotated]
 
         self._prev_var_values = {}
         self._store_previous_values()
@@ -210,8 +212,64 @@ class DCCP:
                 val = var.value
                 self._prev_var_values[var] = val.copy() if hasattr(val, "copy") else val
 
+    def _update_linearizations(self) -> None:
+        """Update parameters of the subproblem."""
+        params_updated = False
+        k = 0
+        while not params_updated and k < self.conf.max_iter_damp:
+            try:
+                for data in self.linearization_map.values():
+                    # Ensure expression has a value
+                    if data.expr.value is None:
+                        try:
+                            val = data.expr.value
+                            if val is None:
+                                # Trigger evaluation
+                                val = data.expr.save_value(data.expr.value)
+                        except Exception:  # noqa: BLE001, S110
+                            pass
+
+                        if data.expr.value is None:
+                            msg = f"Expression {data.expr} value is None"
+                            raise ValueError(msg)  # noqa: TRY301
+
+                    data.update()
+
+                params_updated = True
+            except GradientSparsityPatternError:
+                raise
+            except Exception as e:  # noqa: BLE001
+                logger.debug("Parameter update failed: %s. Applying damping.", e)
+                self._apply_damping()
+                k += 1
+
+        if not params_updated:
+            msg = (
+                "Damping did not yield valid parameters after "
+                f"{self.conf.max_iter_damp} iterations."
+            )
+            raise NonDCCPError(msg)
+
+    def _try_update_cached_subproblem(self) -> bool:
+        """Update cached linearizations, returning False if cache must be rebuilt."""
+        if not self.linearization_map:
+            return False
+
+        try:
+            self._update_linearizations()
+        except GradientSparsityPatternError:
+            self.linearization_map = {}
+            return False
+
+        self._store_previous_values()
+        return True
+
     def _construct_subproblem(self) -> None:
         """Construct the DCCP sub-problem."""
+        if self._try_update_cached_subproblem():
+            return
+
+        # First time construction
         prob = self.prob_in
 
         # split non-affine equality constraints
@@ -227,12 +285,12 @@ class DCCP:
         var_slack: list[cp.Variable] = []
 
         # convexify objective with damping if needed
-        obj = convexify_obj(prob.objective)
+        obj = convexify_obj(prob.objective, self.linearization_map)
         if not prob.objective.is_dcp():
             k_damp = 0
             while obj is None and k_damp < self.conf.max_iter_damp:
                 self._apply_damping()
-                obj = convexify_obj(prob.objective)
+                obj = convexify_obj(prob.objective, self.linearization_map)
                 k_damp += 1
             if obj is None:
                 msg = (
@@ -256,10 +314,10 @@ class DCCP:
             var_slack.append(v_slack)
 
             # convexify the constraint with damping if needed
-            c_conv = convexify_constr(c)
+            c_conv = convexify_constr(c, self.linearization_map)
             while c_conv is None:
                 self._apply_damping()
-                c_conv = convexify_constr(c)
+                c_conv = convexify_constr(c, self.linearization_map)
 
             new_constr.extend(list(c_conv.domain))
             new_constr.append(c_conv.constr.expr <= v_slack)
