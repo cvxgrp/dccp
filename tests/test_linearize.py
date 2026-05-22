@@ -1,6 +1,7 @@
 """Unit tests for DCCP example problems."""
 
 from types import SimpleNamespace
+from typing import cast
 
 import cvxpy as cp
 import numpy as np
@@ -131,7 +132,7 @@ class TestLinearize:
         """Test LinearizationData.update preserves sparse gradients."""
         x = cp.Variable(3, name="x_vec")
         x.value = np.array([1.0, 2.0, 3.0])
-        expr = cp.sum(cp.square(x))
+        expr = cast("cp.Expression", cp.sum(cp.square(x)))
         grad = expr.grad[x]
         assert grad is not None
         assert sp.issparse(grad)
@@ -144,16 +145,18 @@ class TestLinearize:
         data = LinearizationData(grads, offset, expr)
         data.update()
 
-        assert sp.issparse(param_grad.value_sparse)
-        assert np.array_equal(param_grad.value_sparse.row, rows)
-        assert np.array_equal(param_grad.value_sparse.col, cols)
-        assert_almost_equal(param_grad.value_sparse.toarray(), grad.toarray())
+        sparse_value = param_grad.value_sparse
+        assert sparse_value is not None
+        assert sp.issparse(sparse_value)
+        assert np.array_equal(sparse_value.row, rows)
+        assert np.array_equal(sparse_value.col, cols)
+        assert_almost_equal(sparse_value.toarray(), grad.toarray())
 
     def test_linearize_creates_sparse_gradient_parameters(self) -> None:
         """Test cached linearization parameters preserve sparse gradients."""
         x = cp.Variable(3, name="x_vec")
         x.value = np.array([1.0, 2.0, 3.0])
-        expr = cp.sum(cp.square(x))
+        expr = cast("cp.Expression", cp.sum(cp.square(x)))
         cache = {}
 
         lin = linearize(expr, cache)
@@ -167,13 +170,14 @@ class TestLinearize:
         """Test vector sparse gradients update offsets without densifying params."""
         x = cp.Variable(3, name="x_vec")
         x.value = np.array([1.0, 2.0, 3.0])
-        expr = cp.sum(cp.square(x))
+        expr = cast("cp.Expression", cp.sum(cp.square(x)))
         cache = {}
 
         lin = linearize(expr, cache)
 
         assert lin is not None
         assert lin.value is not None
+        assert expr.value is not None
         assert_almost_equal(lin.value, expr.value)
         param_grad = cache[id(expr)].grads[x]
         assert sp.issparse(param_grad.value_sparse)
@@ -190,6 +194,8 @@ class TestLinearize:
 
         assert lin is not None
         assert lin.value is not None
+        assert x.value is not None
+        assert expr.value is not None
         assert_almost_equal(lin.value, expr.value)
         param_grad = cache[id(expr)].grads[x]
         assert sp.issparse(param_grad.value_sparse)
@@ -199,7 +205,7 @@ class TestLinearize:
         """Test sparse updates detect new nonzeros outside the cached pattern."""
         x = cp.Variable(3, name="x_vec")
         x.value = np.array([0.0, 2.0, 0.0])
-        expr = cp.sum(cp.square(x))
+        expr = cast("cp.Expression", cp.sum(cp.square(x)))
         cache = {}
 
         assert linearize(expr, cache) is not None

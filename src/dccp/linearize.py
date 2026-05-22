@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import cast
 
 import cvxpy as cp
 import numpy as np
@@ -18,16 +19,17 @@ class GradientSparsityPatternError(ValueError):
 def _gradient_parameter(g: object) -> cp.Parameter:
     """Create a parameter that preserves sparse gradients when possible."""
     if sp.issparse(g):
-        rows, cols = g.nonzero()
-        return cp.Parameter(g.shape, sparsity=(rows, cols))
-    return cp.Parameter(g.shape)
+        sparse_g = cast("sp.csc_array", g)
+        rows, cols = sparse_g.nonzero()
+        shape = cast("tuple[int, ...]", sparse_g.shape)
+        return cp.Parameter(shape, sparsity=(rows, cols))
+    dense_g = cast("np.ndarray", g)
+    return cp.Parameter(dense_g.shape)
 
 
-def _sparse_value_for_parameter(
-    g: sp.spmatrix | sp.sparray, param: cp.Parameter
-) -> sp.coo_array:
+def _sparse_value_for_parameter(g: sp.csc_array, param: cp.Parameter) -> sp.coo_array:
     """Return ``g`` as a COO value matching ``param``'s sparse pattern."""
-    rows, cols = param.sparse_idx
+    rows, cols = cast("tuple[np.ndarray, np.ndarray]", param.sparse_idx)
     value = g.tocsr()
     allowed = set(zip(rows.tolist(), cols.tolist(), strict=True))
 
@@ -43,16 +45,17 @@ def _sparse_value_for_parameter(
         raise GradientSparsityPatternError(msg)
 
     data = np.asarray(value[rows, cols]).reshape(-1)
-    return sp.coo_array((data, (rows, cols)), shape=g.shape)
+    return sp.coo_array((data, (rows, cols)), shape=cast("tuple[int, ...]", g.shape))
 
 
 def _set_gradient_value(param: cp.Parameter, g: object) -> None:
     """Set a gradient parameter value, preserving sparse storage when available."""
     if sp.issparse(g):
+        sparse_g = cast("sp.csc_array", g)
         if getattr(param, "sparse_idx", None) is not None:
-            param.value_sparse = _sparse_value_for_parameter(g, param)
+            param.value_sparse = _sparse_value_for_parameter(sparse_g, param)
         else:
-            param.value = g.toarray()
+            param.value = sparse_g.toarray()
     else:
         param.value = g
 

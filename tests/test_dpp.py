@@ -2,9 +2,11 @@
 
 import logging
 import time
+from typing import cast
 
 import cvxpy as cp
 import numpy as np
+from cvxpy.error import DCPError, SolverError
 
 from dccp.linearize import LinearizationData, linearize
 
@@ -20,19 +22,23 @@ def test_linearization_data_update() -> None:
     cache = {}
     lin_expr = linearize(expr, linearization_map=cache)
 
+    assert lin_expr is not None
     assert len(cache) == 1
     assert len(lin_expr.parameters()) > 0
     data = cache[id(expr)]
     assert isinstance(data, LinearizationData)
+    assert data.offset.value is not None
     assert np.isclose(data.offset.value, -4.0)
 
     # Current linearization at x=2:
     # f(x) ~ f(x0) + f'(x0)(x - x0) = 4 + 4(x - 2)
+    assert lin_expr.value is not None
     assert np.isclose(lin_expr.value, 4.0)  # with x.value=2
 
     # Move x to 3, but parameters are still at x0=2
     x.value = 3.0
     # The affine approximation at x0=2 evaluated at x=3: 4 + 4(3-2) = 8
+    assert lin_expr.value is not None
     assert np.isclose(lin_expr.value, 8.0)
 
     # Now update parameters to x0=3
@@ -41,6 +47,7 @@ def test_linearization_data_update() -> None:
     # New linearization at x=3:
     # f(x) ~ 9 + 6(x - 3)
     # Evaluated at x=3, should be 9
+    assert lin_expr.value is not None
     assert np.isclose(lin_expr.value, 9.0)
 
 
@@ -59,10 +66,11 @@ def test_benchmark_dpp_vs_rebuild() -> None:
     for _ in range(iterations):
         x.value += 0.01
         lin = linearize(expr)
+        assert lin is not None
         prob = cp.Problem(cp.Minimize(lin))
         try:
             prob.get_problem_data(cp.CLARABEL)
-        except (cp.error.SolverError, cp.error.DCPError) as e:
+        except (SolverError, DCPError) as e:
             _logger.debug("Problem data retrieval failed (rebuild): %s", e)
     end_time = time.time()
     rebuild_time = end_time - start_time
@@ -70,13 +78,14 @@ def test_benchmark_dpp_vs_rebuild() -> None:
     # --- DPP: Update parameters ---
     cache = {}
     lin_dpp = linearize(expr, linearization_map=cache)  # Initial build
+    assert lin_dpp is not None
     prob_dpp = cp.Problem(cp.Minimize(lin_dpp))
-    assert prob_dpp.is_dcp(dpp=True)  # Confirm it is DPP compliant
+    assert cast("bool", prob_dpp.is_dcp(dpp=True))  # pyright: ignore[reportCallIssue]
 
     # Pre-compile
     try:
         prob_dpp.get_problem_data(cp.CLARABEL)
-    except (cp.error.SolverError, cp.error.DCPError) as e:
+    except (SolverError, DCPError) as e:
         _logger.debug("Problem data retrieval failed (pre-compile): %s", e)
 
     data = cache[id(expr)]
@@ -87,7 +96,7 @@ def test_benchmark_dpp_vs_rebuild() -> None:
         data.update()  # Just update parameters
         try:
             prob_dpp.get_problem_data(cp.CLARABEL)
-        except (cp.error.SolverError, cp.error.DCPError) as e:
+        except (SolverError, DCPError) as e:
             _logger.debug("Problem data retrieval failed (update): %s", e)
     end_time = time.time()
     update_time = end_time - start_time
