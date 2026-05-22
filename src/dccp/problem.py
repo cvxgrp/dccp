@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import logging
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import (  # pylint: disable=no-name-in-module
+    ProcessPoolExecutor,
+    as_completed,
+)
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
-
-if TYPE_CHECKING:
-    from multiprocessing.context import BaseContext
+from numbers import Number
+from typing import TYPE_CHECKING, Any, TypeAlias
 
 import cvxpy as cp
 import numpy as np
@@ -19,11 +20,27 @@ from .initialization import initialize
 from .objective import convexify_obj
 from .utils import DCCPSettings, NonDCCPError, is_dccp
 
+if TYPE_CHECKING:
+    from multiprocessing.context import BaseContext
+
 logger = logging.getLogger("dccp")
 logger.setLevel(logging.INFO)
 
+ProblemValue: TypeAlias = (
+    Number | np.generic | complex | str | bytes | memoryview | None
+)
 
-def _set_problem_value(prob: cp.Problem, value: float) -> None:
+
+def _set_problem_status(prob: cp.Problem, status: str) -> None:
+    """Set problem status via internal _status attribute.
+
+    Workaround since cvxpy's status property is read-only.
+    Directly sets the internal _status attribute which the status property reads.
+    """
+    prob._status = status  # noqa: SLF001  # type: ignore[reportPrivateUsage]
+
+
+def _set_problem_value(prob: cp.Problem, value: ProblemValue) -> None:
     """Set problem value via internal _value attribute.
 
     Workaround since cvxpy's value property is read-only.
@@ -158,7 +175,7 @@ class DCCP:
 
         # construction of DCCP sub-problem
         init_kwargs = {}
-        if self.conf.k_ccp is not None and self.conf.k_ccp > 1:
+        if self.conf.k_ccp > 1:
             init_kwargs["random"] = True
         if self.conf.seed is not None:
             init_kwargs["seed"] = self.conf.seed
@@ -286,11 +303,7 @@ class DCCP:
 
             # update previous values
             prev_cost = new_cost if new_cost is not None else prev_cost
-            prev_cost_no_slack = (
-                new_cost_no_slack
-                if new_cost_no_slack is not None
-                else prev_cost_no_slack
-            )
+            prev_cost_no_slack = new_cost_no_slack
 
             # update tau for the next iteration
             if self.iter.tau.value is not None:
@@ -307,11 +320,11 @@ class DCCP:
             )
 
         # terminate with infeasibility if not converged after max iterations
-        self.prob_in._status = cp.INFEASIBLE  # noqa: SLF001
+        _set_problem_status(self.prob_in, cp.INFEASIBLE)
 
         # write the solution back to the original problem
         if converged:
-            self.prob_in._status = cp.OPTIMAL  # noqa: SLF001
+            _set_problem_status(self.prob_in, cp.OPTIMAL)
             _set_problem_value(self.prob_in, self.iter.prob.value)
             for var in self.prob_in.variables():
                 var.value = self.iter.prob.var_dict[var.name()].value
@@ -397,7 +410,7 @@ class DCCP:
             )
 
         # Set the best solution
-        self.prob_in._status = best_status  # noqa: SLF001
+        _set_problem_status(self.prob_in, best_status)
         _set_problem_value(self.prob_in, best_cost)
         for var in self.prob_in.variables():
             if best_var_values and var.id in best_var_values:

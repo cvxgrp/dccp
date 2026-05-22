@@ -65,3 +65,19 @@ jobs:
         run: uv run pre-commit run end-of-file-fixer --all-files
       - name: 🚀 Trim Trailing Whitespace
         run: uv run pre-commit run trailing-whitespace --all-files
+
+  pyright:
+    name: Pyright Type Checking
+    runs-on: ubuntu-latest
+    steps:
+      - name: ⤵️ Check out code from GitHub
+        uses: actions/checkout@v4.2.2
+      - name: 🏗 Set up UV
+        uses: astral-sh/setup-uv@v6.4.3
+        with:
+          version: "latest"
+          enable-cache: true
+      - name: 🏗 Install project dependencies
+        run: uv sync --all-extras --dev
+      - name: 🚀 Run pyright
+        run: uv run pyright

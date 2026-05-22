@@ -55,7 +55,14 @@ def linearize(expr: cp.Expression) -> cp.Expression | None:
         return None
 
     tangent = expr.value
-    grad_map = expr.grad
+    try:
+        grad_map = expr.grad
+    except AttributeError as e:
+        msg = (
+            f"Cannot compute gradient for expression {expr}. "
+            f"This may indicate an incompatible cvxpy version. {expr_str}"
+        )
+        raise ValueError(msg) from e
 
     # compute contribution from each variable to the gradients
     for var in expr.variables():

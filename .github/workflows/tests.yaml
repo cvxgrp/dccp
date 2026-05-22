@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 env:
-  DEFAULT_PYTHON: "3.12"
+  DEFAULT_PYTHON: "3.11"
 
 jobs:
   pytest:
@@ -17,10 +17,12 @@ jobs:
     strategy:
       matrix:
         include:
-          - python-version: "3.12"
+          - python-version: "3.11"
             cvxpy-version: "1.5.4"
-          - python-version: "3.12"
+          - python-version: "3.11"
             cvxpy-version: "1.6.7"
+          - python-version: "3.11"
+            cvxpy-version: "latest"
           - python-version: "3.12"
             cvxpy-version: "latest"
           - python-version: "3.13"
