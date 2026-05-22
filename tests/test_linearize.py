@@ -134,8 +134,7 @@ class TestLinearize:
         x.value = np.array([1.0, 2.0, 3.0])
         expr = cast("cp.Expression", cp.sum(cp.square(x)))
         grad = expr.grad[x]
-        assert grad is not None
-        assert sp.issparse(grad)
+        assert isinstance(grad, sp.csc_array)
 
         rows, cols = grad.nonzero()
         param_grad = cp.Parameter(shape=grad.shape, sparsity=(rows, cols))
@@ -147,7 +146,7 @@ class TestLinearize:
 
         sparse_value = param_grad.value_sparse
         assert sparse_value is not None
-        assert sp.issparse(sparse_value)
+        assert isinstance(sparse_value, sp.coo_array)
         assert np.array_equal(sparse_value.row, rows)
         assert np.array_equal(sparse_value.col, cols)
         assert_almost_equal(sparse_value.toarray(), grad.toarray())

@@ -18,11 +18,9 @@ class GradientSparsityPatternError(ValueError):
 
 def _gradient_parameter(g: object) -> cp.Parameter:
     """Create a parameter that preserves sparse gradients when possible."""
-    if sp.issparse(g):
-        sparse_g = cast("sp.csc_array", g)
-        rows, cols = sparse_g.nonzero()
-        shape = cast("tuple[int, ...]", sparse_g.shape)
-        return cp.Parameter(shape, sparsity=(rows, cols))
+    if isinstance(g, sp.csc_array):
+        rows, cols = g.nonzero()
+        return cp.Parameter(g.shape, sparsity=(rows, cols))
     dense_g = cast("np.ndarray", g)
     return cp.Parameter(dense_g.shape)
 
@@ -45,17 +43,16 @@ def _sparse_value_for_parameter(g: sp.csc_array, param: cp.Parameter) -> sp.coo_
         raise GradientSparsityPatternError(msg)
 
     data = np.asarray(value[rows, cols]).reshape(-1)
-    return sp.coo_array((data, (rows, cols)), shape=cast("tuple[int, ...]", g.shape))
+    return sp.coo_array((data, (rows, cols)), shape=g.shape)
 
 
 def _set_gradient_value(param: cp.Parameter, g: object) -> None:
     """Set a gradient parameter value, preserving sparse storage when available."""
-    if sp.issparse(g):
-        sparse_g = cast("sp.csc_array", g)
+    if isinstance(g, sp.csc_array):
         if getattr(param, "sparse_idx", None) is not None:
-            param.value_sparse = _sparse_value_for_parameter(sparse_g, param)
+            param.value_sparse = _sparse_value_for_parameter(g, param)
         else:
-            param.value = sparse_g.toarray()
+            param.value = g.toarray()
     else:
         param.value = g
 

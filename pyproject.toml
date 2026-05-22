@@ -52,17 +52,18 @@ include = ["/src", "/examples", "/README.md", "/LICENSE", "/NOTICE"]
 
 [dependency-groups]
 dev = [
-    "codespell==2.4.1",
-    "covdefaults==2.3.0",
-    "coverage[toml]==7.6.12",
-    "pre-commit==4.2.0",
-    "pre-commit-hooks==5.0.0",
-    "pylint==3.3.4",
-    "pyright==1.1.407",
-    "pytest==8.4.1",
-    "pytest-cov==6.2.1",
-    "ruff==0.14.2",
-    "yamllint==1.35.1",
+    "codespell",
+    "covdefaults",
+    "coverage[toml]",
+    "pre-commit",
+    "pre-commit-hooks",
+    "pylint",
+    "pyright",
+    "pytest",
+    "pytest-cov",
+    "ruff",
+    "scipy-stubs",
+    "yamllint",
 ]
 doc = [
     "sphinx >= 8.0.0",
