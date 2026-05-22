@@ -163,6 +163,38 @@ class TestLinearize:
         assert getattr(param_grad, "sparse_idx", None) is not None
         assert sp.issparse(param_grad.value_sparse)
 
+    def test_sparse_vector_gradient_offset_accumulation(self) -> None:
+        """Test vector sparse gradients update offsets without densifying params."""
+        x = cp.Variable(3, name="x_vec")
+        x.value = np.array([1.0, 2.0, 3.0])
+        expr = cp.sum(cp.square(x))
+        cache = {}
+
+        lin = linearize(expr, cache)
+
+        assert lin is not None
+        assert lin.value is not None
+        assert_almost_equal(lin.value, expr.value)
+        param_grad = cache[id(expr)].grads[x]
+        assert sp.issparse(param_grad.value_sparse)
+        assert_almost_equal(cache[id(expr)].offset.value, -14.0)
+
+    def test_sparse_matrix_gradient_offset_accumulation(self) -> None:
+        """Test matrix sparse gradients update offsets without densifying params."""
+        x = cp.Variable((2, 2), name="x_mat")
+        x.value = np.array([[1.0, 2.0], [3.0, 4.0]])
+        expr = cp.square(x)
+        cache = {}
+
+        lin = linearize(expr, cache)
+
+        assert lin is not None
+        assert lin.value is not None
+        assert_almost_equal(lin.value, expr.value)
+        param_grad = cache[id(expr)].grads[x]
+        assert sp.issparse(param_grad.value_sparse)
+        assert_almost_equal(cache[id(expr)].offset.value, -(x.value**2))
+
     def test_sparse_gradient_pattern_change_raises(self) -> None:
         """Test sparse updates detect new nonzeros outside the cached pattern."""
         x = cp.Variable(3, name="x_vec")
