@@ -18,7 +18,7 @@ jobs:
       matrix:
         include:
           - python-version: "3.11"
-            cvxpy-version: "1.6.7"
+            cvxpy-version: "1.9.0"
           - python-version: "3.11"
             cvxpy-version: "latest"
           - python-version: "3.12"

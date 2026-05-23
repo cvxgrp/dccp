@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import cvxpy as cp
+from cvxpy.constraints.zero import Equality
 from cvxpy.reductions.solution import Solution
 
-from dccp.problem import Equality, _set_problem_status
+from dccp.problem import _set_problem_status
 
 
 class TestCvxpyCompatibility:
