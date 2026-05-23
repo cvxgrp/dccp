@@ -1,10 +1,10 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [project]
 name = "dccp"
-version = "2.0.0"
+dynamic = ["version"]
 description = "A CVXPY extension for difference of convex programs."
 readme = "README.md"
 license = { text = "GPLv3" }
@@ -18,7 +18,7 @@ maintainers = [
     { name = "Stefan de Lange", email = "langestefan@msn.com" },
 ]
 requires-python = ">=3.11"
-dependencies = ["cvxpy>=1.6.7"]
+dependencies = ["cvxpy>=1.9.0"]
 keywords = ["convex optimization", "cvxpy", "mathematical programming"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -165,5 +165,11 @@ max-complexity = 25
 ]
 
 [tool.codespell]
-ignore-words-list = "fro"
+ignore-words-list = "coo,fro"
 skip = "pyproject.toml"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/dccp/_version.py"

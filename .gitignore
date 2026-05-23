@@ -66,6 +66,7 @@ target/
 
 # uv
 uv.lock
+src/dccp/_version.py
 
 # autodocs
 docs/src/api
