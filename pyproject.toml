@@ -48,7 +48,7 @@ packages = ["src/dccp"]
 include = ["src/dccp/py.typed"]
 
 [tool.hatch.build.targets.sdist]
-include = ["/src", "/examples", "/README.md", "/LICENSE", "/NOTICE"]
+include = ["/src", "/examples", "/README.md", "/LICENSE"]
 
 [dependency-groups]
 dev = [
