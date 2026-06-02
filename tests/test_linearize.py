@@ -213,6 +213,34 @@ class TestLinearize:
         with pytest.raises(GradientSparsityPatternError):
             cache[id(expr)].update()
 
+    def test_vector_expr_scalar_variable_offset_shape(self) -> None:
+        """Regression test for #127/#129: offset value must match the param shape.
+
+        A vector-shaped expression depending on a scalar variable produces a
+        gradient term of shape ``(1, n)``. Subtracting it from the expression
+        value (shape ``(n,)``) broadcasts ``val`` to ``(1, n)``, which does not
+        match the ``(n,)`` offset parameter. Without reshaping the offset value,
+        cvxpy rejects it with "Invalid dimensions (1, n) for Parameter value".
+        """
+        x = cp.Variable(name="scalar")
+        x.value = 2.0
+        a = np.array([1.0, 2.0, 3.0])
+        # shape (3,) expression that is nonlinear in the scalar variable x
+        expr = cp.square(cp.multiply(a, x))
+        assert expr.shape == (3,)
+
+        # Without the offset reshape this raises:
+        # "ValueError: Invalid dimensions (1, 3) for Parameter value".
+        lin = linearize(expr)
+
+        assert lin is not None
+        assert lin.value is not None
+        assert expr.value is not None
+        # Tangent at the linearization point equals the function value there.
+        assert_almost_equal(
+            np.asarray(lin.value).reshape(-1), np.asarray(expr.value).reshape(-1)
+        )
+
     def test_linearization_data_update_skips_none_var_value_and_continues(self) -> None:
         """Test update loop continues when one variable has no value."""
         x = cp.Variable(name="x")
