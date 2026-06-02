@@ -471,8 +471,9 @@ class TestMaximization:
         result = dccp(prob, k_ccp=1, parallel=False, seed=42, verify_dccp=False)
 
         assert prob.value is not None
-        assert prob.value > 0, "prob.value should be positive for this maximization"
-        assert np.isclose(float(prob.value), result, atol=1e-6)
+        prob_value = float(prob.value)  # type: ignore[arg-type]
+        assert prob_value > 0, "prob.value should be positive for this maximization"
+        assert np.isclose(prob_value, result, atol=1e-6)
 
     def test_maximization_prob_value_matches_return_multi_init(self) -> None:
         """prob.value sign is correct for maximization with restarts."""
@@ -482,8 +483,9 @@ class TestMaximization:
         result = dccp(prob, k_ccp=3, parallel=False, seed=42, verify_dccp=False)
 
         assert prob.value is not None
-        assert prob.value > 0, "prob.value should be positive for this maximization"
-        assert np.isclose(float(prob.value), result, atol=1e-6)
+        prob_value = float(prob.value)  # type: ignore[arg-type]
+        assert prob_value > 0, "prob.value should be positive for this maximization"
+        assert np.isclose(prob_value, result, atol=1e-6)
 
 
 class TestSolveMultiInit:
