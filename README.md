@@ -1,9 +1,9 @@
 # DCCP
 
-[![build](https://github.com/cvxgrp/dccp/actions/workflows/release.yaml/badge.svg)](https://github.com/cvxgrp/dccp/actions/workflows/release.yaml)
+[![build](https://github.com/cvxgrp/dccp/actions/workflows/build.yml/badge.svg)](https://github.com/cvxgrp/dccp/actions/workflows/build.yml)
 [![docs](https://img.shields.io/badge/docs-online-brightgreen?logo=read-the-docs&style=flat)](https://www.cvxpy.org/dccp/)
 [![codecov](https://codecov.io/gh/cvxgrp/dccp/graph/badge.svg)](https://codecov.io/gh/cvxgrp/dccp)
-[![license](https://img.shields.io/github/license/cvxgrp/dccp)](https://github.com/cvxgrp/dccp/blob/main/LICENSE)
+[![license](https://img.shields.io/github/license/cvxgrp/dccp)](https://github.com/cvxgrp/dccp/blob/master/LICENSE)
 [![pypi](https://img.shields.io/pypi/v/dccp)](https://pypi.org/project/dccp/)
 
 DCCP package provides an organized heuristic for convex-concave programming.
@@ -16,7 +16,7 @@ DCCP is built on top of [CVXPY](http://www.cvxpy.org/), a domain-specific langua
 
 **Requirements:**
 - Python 3.11 or higher
-- CVXPY 1.5.4 or higher (tested with 1.5.4, 1.6.7, and 1.7.x)
+- CVXPY 1.9.0 or higher
 
 You can install the latest DCCP package via pip:
 
@@ -103,7 +103,7 @@ For all available parameters, see the [documentation](https://www.cvxpy.org/dccp
 
 ## License
 
-This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+This project is licensed under GPLv3 - see the [LICENSE](LICENSE) file for details.
 
 ## Citation
 
