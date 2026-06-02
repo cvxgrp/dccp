@@ -120,7 +120,7 @@ class LinearizationData:
         val = self.expr.value - dot_product
         if self.expr.shape == () and np.ndim(val) > 0 and val.size == 1:
             val = val.item()
-        self.offset.value = val
+        self.offset.value = np.reshape(val, self.offset.shape)
 
 
 def _linearize_param(
