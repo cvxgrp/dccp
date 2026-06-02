@@ -15,7 +15,7 @@ import cvxpy as cp
 import numpy as np
 from cvxpy.constraints.zero import Equality
 
-from .constraint import convexify_constr
+from .constraint import ConvexConstraint, convexify_constr
 from .initialization import initialize
 from .linearize import GradientSparsityPatternError
 from .objective import convexify_obj
@@ -264,6 +264,27 @@ class DCCP:
         self._store_previous_values()
         return True
 
+    def _convexify_constr_with_damping(self, c: cp.Constraint) -> ConvexConstraint:
+        """Convexify a non-DCP constraint, applying bounded damping if needed.
+
+        Mirrors the bounded objective-convexification path: damping is retried up
+        to ``max_iter_damp`` times before giving up, so an unrecoverable
+        linearization point raises instead of looping forever.
+        """
+        c_conv = convexify_constr(c, self.linearization_map)
+        k_damp = 0
+        while c_conv is None and k_damp < self.conf.max_iter_damp:
+            self._apply_damping()
+            c_conv = convexify_constr(c, self.linearization_map)
+            k_damp += 1
+        if c_conv is None:
+            msg = (
+                "Damping did not yield a convexified constraint after "
+                f"{self.conf.max_iter_damp} iterations."
+            )
+            raise NonDCCPError(msg)
+        return c_conv
+
     def _construct_subproblem(self) -> None:
         """Construct the DCCP sub-problem."""
         if self._try_update_cached_subproblem():
@@ -314,11 +335,7 @@ class DCCP:
             var_slack.append(v_slack)
 
             # convexify the constraint with damping if needed
-            c_conv = convexify_constr(c, self.linearization_map)
-            while c_conv is None:
-                self._apply_damping()
-                c_conv = convexify_constr(c, self.linearization_map)
-
+            c_conv = self._convexify_constr_with_damping(c)
             new_constr.extend(list(c_conv.domain))
             new_constr.append(c_conv.constr.expr <= v_slack)
 
@@ -383,9 +400,11 @@ class DCCP:
         # write the solution back to the original problem
         if converged:
             _set_problem_status(self.prob_in, cp.OPTIMAL)
-            _set_problem_value(self.prob_in, self.iter.prob.value)
             for var in self.prob_in.variables():
                 var.value = self.iter.prob.var_dict[var.name()].value
+            # Use the original objective's value so the sign matches the problem
+            # sense (the subproblem minimizes the negated maximization objective).
+            _set_problem_value(self.prob_in, self.prob_in.objective.value)
             return self.iter.cost
 
         return self.iter.cost if converged else np.inf
@@ -469,14 +488,32 @@ class DCCP:
 
         # Set the best solution
         _set_problem_status(self.prob_in, best_status)
-        _set_problem_value(self.prob_in, best_cost)
         for var in self.prob_in.variables():
             if best_var_values and var.id in best_var_values:
                 var.value = best_var_values[var.id]
             else:
                 var.value = orig_values[var.id]
 
-        return best_cost * (-1 if self.is_maximization else 1)
+        sign = -1 if self.is_maximization else 1
+        if best_status == cp.OPTIMAL:
+            # Use the original objective's value so the sign matches the problem
+            # sense (best_cost is the negated subproblem cost for maximization).
+            _set_problem_value(self.prob_in, self.prob_in.objective.value)
+        else:
+            _set_problem_value(self.prob_in, best_cost * sign)
+
+        return best_cost * sign
+
+    def _restart_seed(self, index: int) -> int | None:
+        """Derive a distinct, reproducible seed for restart ``index``.
+
+        Returns None when no base seed is configured (non-reproducible runs).
+        Otherwise each restart gets a different seed derived from the base seed
+        so that ``seed=`` produces reproducible multi-restart results.
+        """
+        if self.conf.seed is None:
+            return None
+        return self.conf.seed + index
 
     def _solve_multi_sequential(
         self, num_inits: int
@@ -486,8 +523,8 @@ class DCCP:
         best_var_values: dict[int, Any] | None = None
         best_status = cp.INFEASIBLE
 
-        for _ in range(num_inits):
-            initialize(self.prob_in, random=True)
+        for i in range(num_inits):
+            initialize(self.prob_in, random=True, seed=self._restart_seed(i))
             try:
                 cost, var_values = self._solve_one_init()
                 if cost is not None and cost < best_cost:
@@ -512,8 +549,8 @@ class DCCP:
 
         with ProcessPoolExecutor(max_workers, mp_context) as executor:
             futures = []
-            for _ in range(num_inits):
-                initialize(self.prob_in, random=True)
+            for i in range(num_inits):
+                initialize(self.prob_in, random=True, seed=self._restart_seed(i))
                 futures.append(executor.submit(self._solve_one_init))
 
             for future in as_completed(futures):

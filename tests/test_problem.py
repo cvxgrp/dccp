@@ -321,6 +321,26 @@ class TestDCCP:
 
         assert solver.iter.vars_slack
 
+    def test_construct_subproblem_constraint_damping_raises_when_unrecoverable(
+        self,
+    ) -> None:
+        """Constraint damping is bounded: it raises instead of looping forever."""
+        x = cp.Variable(name="x")
+        y = cp.Variable(name="y")
+        prob = cp.Problem(cp.Maximize(y**2), [cp.sqrt(x) <= y])
+        solver = DCCP(prob, settings=DCCPSettings(verify_dccp=False, max_iter_damp=3))
+
+        # x is outside sqrt's domain and damping cannot recover it (no usable
+        # previous value), so convexification can never succeed.
+        x.value = np.array(-1.0)
+        y.value = np.array(1.0)
+        solver._prev_var_values = {}
+
+        with pytest.raises(
+            NonDCCPError, match="Damping did not yield a convexified constraint"
+        ):
+            solver._construct_subproblem()
+
 
 class TestDccpFunction:
     """Test the dccp function."""
@@ -443,6 +463,28 @@ class TestMaximization:
         assert result > 0, "Maximization result should be positive"
         assert np.isclose(result, expected, atol=0.1), f"Expected ~1.414, got {result}"
 
+    def test_maximization_prob_value_matches_return_single_init(self) -> None:
+        """prob.value has the correct (positive) sign for maximization."""
+        x = cp.Variable(2)
+        prob = cp.Problem(cp.Maximize(cp.norm(x)), [x >= 0, x <= 1])
+
+        result = dccp(prob, k_ccp=1, parallel=False, seed=42, verify_dccp=False)
+
+        assert prob.value is not None
+        assert prob.value > 0, "prob.value should be positive for this maximization"
+        assert np.isclose(float(prob.value), result, atol=1e-6)
+
+    def test_maximization_prob_value_matches_return_multi_init(self) -> None:
+        """prob.value sign is correct for maximization with restarts."""
+        x = cp.Variable(2)
+        prob = cp.Problem(cp.Maximize(cp.norm(x)), [x >= 0, x <= 1])
+
+        result = dccp(prob, k_ccp=3, parallel=False, seed=42, verify_dccp=False)
+
+        assert prob.value is not None
+        assert prob.value > 0, "prob.value should be positive for this maximization"
+        assert np.isclose(float(prob.value), result, atol=1e-6)
+
 
 class TestSolveMultiInit:
     """Test the solve_multi_init method and helpers."""
@@ -534,6 +576,20 @@ class TestSolveMultiInit:
         assert prob.status == cp.INFEASIBLE
         assert x.value is not None
         assert np.allclose(x.value, np.array([0.25, 0.75]))
+
+    def test_restart_seed_distinct_and_reproducible(self) -> None:
+        """Restart seeds are distinct per restart and derived from the base seed."""
+        x = cp.Variable(2)
+        prob = cp.Problem(cp.Maximize(cp.norm(x)), [x >= 0, x <= 1])
+
+        seeded = DCCP(prob, settings=DCCPSettings(verify_dccp=False, seed=10))
+        assert seeded._restart_seed(0) == 10
+        assert seeded._restart_seed(1) == 11
+        assert seeded._restart_seed(0) != seeded._restart_seed(1)
+
+        unseeded = DCCP(prob, settings=DCCPSettings(verify_dccp=False, seed=None))
+        assert unseeded._restart_seed(0) is None
+        assert unseeded._restart_seed(3) is None
 
     def test_solve_multi_parallel_handles_error(self) -> None:
         """Test solve_multi_parallel continues when worker raises NonDCCPError."""
