@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import contextlib
 import logging
+import warnings
 from concurrent.futures import (  # pylint: disable=no-name-in-module
     ProcessPoolExecutor,
     as_completed,
@@ -22,6 +24,7 @@ from .objective import convexify_obj
 from .utils import DCCPSettings, NonDCCPError, is_dccp
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
     from multiprocessing.context import BaseContext
 
 logger = logging.getLogger("dccp")
@@ -30,6 +33,28 @@ logger.setLevel(logging.INFO)
 ProblemValue: TypeAlias = (
     Number | np.generic | complex | str | bytes | memoryview | None
 )
+
+
+@contextlib.contextmanager
+def _suppress_sparse_value_warning() -> Iterator[None]:
+    """Silence cvxpy's spurious sparse-``.value`` RuntimeWarning during a solve.
+
+    DCCP creates sparse-pattern gradient parameters for efficiency (see
+    ``linearize._gradient_parameter``) and sets them via ``.value_sparse``.
+    cvxpy's solve loop still reads ``.value`` on those leaves, which emits a
+    "Reading from a sparse CVXPY expression via `.value` is discouraged"
+    RuntimeWarning. The conversion is harmless for DCCP, so suppress it here so
+    package users don't see it. Tracked upstream: cvxpy/cvxpy#3367.
+    """
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            message=(
+                "Reading from a sparse CVXPY expression via `.value` is discouraged"
+            ),
+            category=RuntimeWarning,
+        )
+        yield
 
 
 def _set_problem_status(prob: cp.Problem, status: str) -> None:
@@ -423,18 +448,22 @@ class DCCP:
             Variable values are keyed by variable id for pickling compatibility.
 
         """
-        self._prev_var_values = {}
-        self._store_previous_values()
-        self.iter.k = 0
-        self.iter.cost = np.inf
-        cost = self._solve()
-        if self.prob_in.status == cp.OPTIMAL:
-            var_values = {
-                var.id: var.value.copy() if var.value is not None else None
-                for var in self.prob_in.variables()
-            }
-            return cost, var_values
-        return None, None
+        # Re-applied here (not just in the public ``dccp`` entry point) because in
+        # the parallel path this method runs in a worker process that does not
+        # inherit the parent's warning filters.
+        with _suppress_sparse_value_warning():
+            self._prev_var_values = {}
+            self._store_previous_values()
+            self.iter.k = 0
+            self.iter.cost = np.inf
+            cost = self._solve()
+            if self.prob_in.status == cp.OPTIMAL:
+                var_values = {
+                    var.id: var.value.copy() if var.value is not None else None
+                    for var in self.prob_in.variables()
+                }
+                return cost, var_values
+            return None, None
 
     def solve_multi_init(
         self,
@@ -661,8 +690,9 @@ def dccp(  # noqa: PLR0913
         ),
         **kwargs,
     )
-    if k_ccp > 1:
-        return dccp_solver.solve_multi_init(
-            k_ccp, parallel=parallel, max_workers=max_workers, mp_context=mp_context
-        )
-    return dccp_solver()
+    with _suppress_sparse_value_warning():
+        if k_ccp > 1:
+            return dccp_solver.solve_multi_init(
+                k_ccp, parallel=parallel, max_workers=max_workers, mp_context=mp_context
+            )
+        return dccp_solver()

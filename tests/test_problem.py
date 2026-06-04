@@ -1,5 +1,7 @@
 """Unit tests for DCCP problem module."""
 
+import warnings
+
 import cvxpy as cp
 import numpy as np
 import pytest
@@ -486,6 +488,46 @@ class TestMaximization:
         prob_value = float(prob.value)  # type: ignore[arg-type]
         assert prob_value > 0, "prob.value should be positive for this maximization"
         assert np.isclose(prob_value, result, atol=1e-6)
+
+
+class TestSparseValueWarningSuppressed:
+    """DCCP suppresses cvxpy's spurious sparse-``.value`` RuntimeWarning."""
+
+    @staticmethod
+    def _sparse_value_warnings(
+        records: list[warnings.WarningMessage],
+    ) -> list[warnings.WarningMessage]:
+        """Return only the sparse-``.value`` RuntimeWarnings from ``records``."""
+        return [
+            w
+            for w in records
+            if issubclass(w.category, RuntimeWarning)
+            and "sparse CVXPY expression via `.value`" in str(w.message)
+        ]
+
+    def test_single_init_emits_no_sparse_value_warning(self) -> None:
+        """A single-init solve does not leak the sparse-value warning to callers."""
+        x = cp.Variable(2)
+        prob = cp.Problem(cp.Maximize(cp.norm(x)), [x >= 0, x <= 1])
+
+        with warnings.catch_warnings(record=True) as caught:
+            # Reset filters (incl. pytest's global ignore) so we test DCCP's own
+            # suppression, not the test harness config.
+            warnings.simplefilter("always")
+            dccp(prob, k_ccp=1, parallel=False, seed=42, verify_dccp=False)
+
+        assert self._sparse_value_warnings(caught) == []
+
+    def test_multi_init_sequential_emits_no_sparse_value_warning(self) -> None:
+        """A sequential multi-restart solve does not leak the sparse-value warning."""
+        x = cp.Variable(2)
+        prob = cp.Problem(cp.Maximize(cp.norm(x)), [x >= 0, x <= 1])
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            dccp(prob, k_ccp=3, parallel=False, seed=42, verify_dccp=False)
+
+        assert self._sparse_value_warnings(caught) == []
 
 
 class TestSolveMultiInit:
