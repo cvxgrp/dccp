@@ -74,7 +74,7 @@ doc = [
     "myst-parser >= 4.0.0",
     "sphinx-autobuild>=2024.10.3",
     "nbsphinx >= 0.9.7",
-    "ipykernel==6.30.0",
+    "ipykernel==7.2.0",
     "nbmake==1.5.5",
     "matplotlib>=3.10.5",
     "pytest==9.0.3",
